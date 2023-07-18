@@ -43,7 +43,7 @@ static ret_t aio_check_request_valid(aio_request_t *pRequest)
     if (NULL == pRequest)
     {
         res = RET_BAD_VALUE;
-        printf("ERROR: empty request! res = %d.\n", res);
+        printf("ERROR: invalid request detected: empty request! res = %d.\n", res);
     }
 
     else if (RET_OK == res && !pRequest->isValid)
@@ -54,7 +54,7 @@ static ret_t aio_check_request_valid(aio_request_t *pRequest)
             (pCreateInfo->direction < 0 || pCreateInfo->direction >= ASYNC_FILE_ACCESS_MAX))
         {
             res = RET_BAD_VALUE;
-            printf("ERROR: invalid request! res = %d.\n", res);
+            printf("ERROR: invalid request detected: invalid info! res = %d.\n", res);
         }
         else
         {
@@ -64,7 +64,8 @@ static ret_t aio_check_request_valid(aio_request_t *pRequest)
             if (fd < 0)
             {
                 res = RET_BAD_VALUE;
-                printf("ERROR: invalid request file name: %s! res = %d.\n", pCreateInfo->fn, res);
+                printf("ERROR: invalid request detected: file [%s] not exist! res = %d.\n",
+                       pCreateInfo->fn, res);
             }
             else
             {
@@ -82,8 +83,8 @@ static ret_t aio_get_request(async_file_accessor_t            *thiz,
                              async_file_access_request_t     **pAsyncRequest,
                              async_file_access_request_info_t *pCreateInfo)
 {
-    aio_file_accessor_t *pAioAccessor = (aio_file_accessor_t *)thiz;
-    aio_request_t **pRequest = (aio_request_t **)pAsyncRequest;
+    aio_file_accessor_t *pAioAccessor   = (aio_file_accessor_t *)thiz;
+    aio_request_t      **pRequest       = (aio_request_t **)pAsyncRequest;
 
     ret_t res = RET_OK;
     *pRequest = (aio_request_t *)malloc(sizeof(aio_request_t));
@@ -118,8 +119,8 @@ static ret_t aio_request_alloc_buffer(async_file_accessor_t       *thiz,
                                       async_file_access_request_t *pAsyncRequest,
                                       void                       **buf)
 {
-    aio_file_accessor_t *pAioAccessor = (aio_file_accessor_t *)thiz;
-    aio_request_t *pRequest = (aio_request_t *)pAsyncRequest;
+    aio_file_accessor_t *pAioAccessor   = (aio_file_accessor_t *)thiz;
+    aio_request_t       *pRequest       = (aio_request_t *)pAsyncRequest;
 
     ret_t res = aio_check_request_valid(pRequest);
 
@@ -127,10 +128,10 @@ static ret_t aio_request_alloc_buffer(async_file_accessor_t       *thiz,
     {
         if (pRequest->cb.aio_nbytes > 0)
         {
-            *buf                    = malloc(pRequest->cb.aio_nbytes);
-            pRequest->buf           = *buf;
-            pRequest->cb.aio_buf    = *buf;
-            pRequest->isAlloced     = TRUE;
+            *buf                        = malloc(pRequest->cb.aio_nbytes);
+            pRequest->buf               = *buf;
+            pRequest->cb.aio_buf        = *buf;
+            pRequest->isAlloced         = TRUE;
 
             printf("file = %s: req_addr = %p, buf_addr = %p.\n",
                     pRequest->parent.info.fn, pRequest, pRequest->buf);
@@ -150,8 +151,8 @@ static ret_t aio_request_import_buffer(async_file_accessor_t       *thiz,
                                        async_file_access_request_t *pAsyncRequest,
                                        void                       **buf)
 {
-    aio_file_accessor_t *pAioAccessor = (aio_file_accessor_t *)thiz;
-    aio_request_t *pRequest = (aio_request_t *)pAsyncRequest;
+    aio_file_accessor_t *pAioAccessor   = (aio_file_accessor_t *)thiz;
+    aio_request_t       *pRequest       = (aio_request_t *)pAsyncRequest;
 
     ret_t res = aio_check_request_valid(pRequest);
 
@@ -159,8 +160,8 @@ static ret_t aio_request_import_buffer(async_file_accessor_t       *thiz,
     {
         if (buf != NULL)
         {
-            pRequest->buf           = buf;
-            pRequest->cb.aio_buf    = buf;
+            pRequest->buf               = buf;
+            pRequest->cb.aio_buf        = buf;
 
             printf("file = %s: req_addr = %p, buf_addr = %p.\n",
                     pRequest->parent.info.fn, pRequest, pRequest->buf);
@@ -179,8 +180,8 @@ static ret_t aio_request_import_buffer(async_file_accessor_t       *thiz,
 static ret_t aio_put_request(async_file_accessor_t       *thiz,
                              async_file_access_request_t *pAsyncRequest)
 {
-    aio_file_accessor_t *pAioAccessor = (aio_file_accessor_t *)thiz;
-    aio_request_t *pRequest = (aio_request_t *)pAsyncRequest;
+    aio_file_accessor_t *pAioAccessor   = (aio_file_accessor_t *)thiz;
+    aio_request_t       *pRequest       = (aio_request_t *)pAsyncRequest;
 
     ret_t res = aio_check_request_valid(pRequest);
 
@@ -204,7 +205,7 @@ static ret_t aio_put_request(async_file_accessor_t       *thiz,
             }
             printf("ERROR: failed to initiate the async IO operation! error: %d - %s.\n", errno, strerror(errno));
         }
-        pRequest->submitted         = TRUE;
+        pRequest->submitted = TRUE;
     }
 
     if (RET_OK == res && pAioAccessor->req_count % REQ_LIST_BUFSIZE == 0)
@@ -240,8 +241,8 @@ static ret_t aio_wait_request(async_file_accessor_t       *thiz,
                               async_file_access_request_t *pAsyncRequest,
                               u32                          timeout_ms)
 {
-    aio_file_accessor_t *pAioAccessor = (aio_file_accessor_t *)thiz;
-    aio_request_t *pRequest = (aio_request_t *)pAsyncRequest;
+    aio_file_accessor_t *pAioAccessor   = (aio_file_accessor_t *)thiz;
+    aio_request_t       *pRequest       = (aio_request_t *)pAsyncRequest;
 
     ret_t res = aio_check_request_valid(pRequest);
 
@@ -271,8 +272,8 @@ static ret_t aio_wait_request(async_file_accessor_t       *thiz,
 static ret_t aio_cancel_request(async_file_accessor_t       *thiz,
                                 async_file_access_request_t *pAsyncRequest)
 {
-    aio_file_accessor_t *pAioAccessor = (aio_file_accessor_t *)thiz;
-    aio_request_t *pRequest = (aio_request_t *)pAsyncRequest;
+    aio_file_accessor_t *pAioAccessor   = (aio_file_accessor_t *)thiz;
+    aio_request_t       *pRequest       = (aio_request_t *)pAsyncRequest;
 
     ret_t res = aio_check_request_valid(pRequest);
 

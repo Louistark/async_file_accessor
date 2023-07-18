@@ -1,0 +1,5 @@
+{
+    "files.associations": {
+        "async_file_accessor.h": "c"
+    }
+}

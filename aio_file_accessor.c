@@ -101,12 +101,25 @@ static ret_t aio_get_request(async_file_accessor_t            *thiz,
         (*pRequest)->fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
                               ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
                               : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT, 0666);
+        for (int i=0; (*pRequest)->fd==-1 && i<RETRY_TIMES; i++)
+        {
+            printf("ERROR: file [%s] open fail! error: %d - %s. Retrying[%d] ...\n",
+                            (*pRequest)->parent.info.fn, errno, strerror(errno), i);
+            (*pRequest)->fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
+                              ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
+                              : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT, 0666);
+        }
 
         (*pRequest)->buf            = NULL;
+        (*pRequest)->isAlloced      = FALSE;
+        (*pRequest)->submitted      = FALSE;
+        (*pRequest)->accessDone     = FALSE;
+        (*pRequest)->canceled       = FALSE;
         (*pRequest)->cb.aio_buf     = NULL;
         (*pRequest)->cb.aio_fildes  = (*pRequest)->fd;
         (*pRequest)->cb.aio_nbytes  = pCreateInfo->size;
         (*pRequest)->cb.aio_offset  = lseek((*pRequest)->fd, pCreateInfo->offset, SEEK_CUR);
+        fstat((*pRequest)->fd, &(*pRequest)->fsb);
     }
 
     printf("file = %s: req_addr = %p.\n", (*pRequest)->parent.info.fn, (*pRequest));
@@ -114,10 +127,10 @@ static ret_t aio_get_request(async_file_accessor_t            *thiz,
     return res;
 }
 
-/// Alloc aio request buffer
-static ret_t aio_request_alloc_buffer(async_file_accessor_t       *thiz,
-                                      async_file_access_request_t *pAsyncRequest,
-                                      void                       **buf)
+/// Alloc aio write request buffer
+static ret_t aio_request_alloc_write_buffer(async_file_accessor_t       *thiz,
+                                            async_file_access_request_t *pAsyncRequest,
+                                            void                       **buffer)
 {
     aio_file_accessor_t *pAioAccessor   = (aio_file_accessor_t *)thiz;
     aio_request_t       *pRequest       = (aio_request_t *)pAsyncRequest;
@@ -128,9 +141,14 @@ static ret_t aio_request_alloc_buffer(async_file_accessor_t       *thiz,
     {
         if (pRequest->cb.aio_nbytes > 0)
         {
-            *buf                        = malloc(pRequest->cb.aio_nbytes);
-            pRequest->buf               = *buf;
-            pRequest->cb.aio_buf        = *buf;
+            (*buffer)                   = malloc(pRequest->cb.aio_nbytes);
+            for (int i=0; NULL==(*buffer) && i<RETRY_TIMES; i++)
+            {
+                printf("ERROR: file [%s] buffer malloc fail! Retrying[%d] ...\n", pRequest->parent.info.fn, i);
+                (*buffer)               = malloc(pRequest->cb.aio_nbytes);
+            }
+            pRequest->buf               = *buffer;
+            pRequest->cb.aio_buf        = *buffer;
             pRequest->isAlloced         = TRUE;
 
             printf("file = %s: req_addr = %p, buf_addr = %p.\n",
@@ -146,10 +164,10 @@ static ret_t aio_request_alloc_buffer(async_file_accessor_t       *thiz,
     return res;
 }
 
-/// Import aio request buffer
-static ret_t aio_request_import_buffer(async_file_accessor_t       *thiz,
-                                       async_file_access_request_t *pAsyncRequest,
-                                       void                       **buf)
+/// Import aio read only request buffer
+static ret_t aio_request_import_read_buffer(async_file_accessor_t       *thiz,
+                                            async_file_access_request_t *pAsyncRequest,
+                                            void                        *buffer)
 {
     aio_file_accessor_t *pAioAccessor   = (aio_file_accessor_t *)thiz;
     aio_request_t       *pRequest       = (aio_request_t *)pAsyncRequest;
@@ -158,10 +176,10 @@ static ret_t aio_request_import_buffer(async_file_accessor_t       *thiz,
 
     if (RET_OK == res)
     {
-        if (buf != NULL)
+        if (buffer != NULL)
         {
-            pRequest->buf               = buf;
-            pRequest->cb.aio_buf        = buf;
+            pRequest->buf               = buffer;
+            pRequest->cb.aio_buf        = buffer;
 
             printf("file = %s: req_addr = %p, buf_addr = %p.\n",
                     pRequest->parent.info.fn, pRequest, pRequest->buf);
@@ -423,8 +441,8 @@ static aio_file_accessor_t g_aioFileAccessor =
         .type               = ASYNC_FILE_ACCESSOR_AIO,
 
         .getRequest         = aio_get_request,
-        .allocRequestBuf    = aio_request_alloc_buffer,
-        .importRequestBuf   = aio_request_import_buffer,
+        .allocWriteBuf      = aio_request_alloc_write_buffer,
+        .importReadBuf      = aio_request_import_read_buffer,
         .putRequest         = aio_put_request,
         .waitRequest        = aio_wait_request,
         .cancelRequest      = aio_cancel_request,

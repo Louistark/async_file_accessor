@@ -19,6 +19,7 @@ extern "C" {
 #endif
 
 #define REQ_LIST_BUFSIZE    1024
+#define RETRY_TIMES         2
 
 
 typedef enum __async_file_accessor_type
@@ -61,23 +62,23 @@ typedef ret_t (*async_file_access_get_request_func)(async_file_accessor_t* thiz,
                                                     async_file_access_request_t** pRequest,
                                                     async_file_access_request_info_t* pCreateInfo);
 
-typedef ret_t (*async_file_access_alloc_buffer_func)(async_file_accessor_t* thiz,
-                                                        async_file_access_request_t* pRequest,
-                                                        void** buf);
+typedef ret_t (*async_file_access_alloc_write_buffer_func)(async_file_accessor_t* thiz,
+                                                           async_file_access_request_t* pRequest,
+                                                           void** buf);
 
-typedef ret_t (*async_file_access_import_buffer_func)(async_file_accessor_t* thiz,
-                                                        async_file_access_request_t* pRequest,
-                                                        void** buf);
+typedef ret_t (*async_file_access_import_read_buffer_func)(async_file_accessor_t* thiz,
+                                                           async_file_access_request_t* pRequest,
+                                                           void* buf);
 
 typedef ret_t (*async_file_access_put_request_func)(async_file_accessor_t* thiz,
                                                     async_file_access_request_t* pRequest);
 
 typedef ret_t (*async_file_access_wait_request_func)(async_file_accessor_t* thiz,
-                                                    async_file_access_request_t* pRequest,
-                                                    u32 timeout_ms);
+                                                     async_file_access_request_t* pRequest,
+                                                     u32 timeout_ms);
 
 typedef ret_t (*async_file_access_cancel_request_func)(async_file_accessor_t* thiz,
-                                                    async_file_access_request_t* pRequest);
+                                                       async_file_access_request_t* pRequest);
 
 typedef ret_t (*async_file_access_wait_all_request_func)(async_file_accessor_t* thiz,
                                                          u32 timeout_ms);
@@ -91,8 +92,8 @@ struct __async_file_accessor
     async_file_accessor_type_t                      type;
 
     async_file_access_get_request_func              getRequest;
-    async_file_access_alloc_buffer_func             allocRequestBuf;
-    async_file_access_import_buffer_func            importRequestBuf;
+    async_file_access_alloc_write_buffer_func       allocWriteBuf;
+    async_file_access_import_read_buffer_func       importReadBuf;
     async_file_access_put_request_func              putRequest;
     async_file_access_wait_request_func             waitRequest;
     async_file_access_cancel_request_func           cancelRequest;

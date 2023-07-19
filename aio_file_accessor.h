@@ -25,6 +25,7 @@ typedef struct __aio_request
     async_file_access_request_t     parent;
 
     s32                             fd;         /// file descriptor
+    struct stat                     fsb;        /// file state block
     struct aiocb                    cb;         /// AIO control block
     void                           *buf;        /// data buffer
 

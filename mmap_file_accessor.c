@@ -28,8 +28,8 @@ static ret_t mmap_check_request_valid(mmap_request_t *pRequest)
 
 /// Get mmap request
 static ret_t mmap_get_request(async_file_accessor_t            *thiz,
-                             async_file_access_request_t     **pAsyncRequest,
-                             async_file_access_request_info_t *pCreateInfo)
+                              async_file_access_request_t     **pAsyncRequest,
+                              async_file_access_request_info_t *pCreateInfo)
 {
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t      **pRequest      = (mmap_request_t **)pAsyncRequest;
@@ -44,16 +44,44 @@ static ret_t mmap_get_request(async_file_accessor_t            *thiz,
     memcpy((*pRequest)->parent.info.fn, pCreateInfo->fn, MAX_FILE_NAME_LEN);
     res = mmap_check_request_valid(*pRequest);
 
-    
+    if (RET_OK == res)
+    {
+        (*pRequest)->fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
+                              ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
+                              : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        for (int i=0; (*pRequest)->fd==-1 && i<RETRY_TIMES; i++)
+        {
+            printf("ERROR: file [%s] open fail! error: %d - %s. Retrying[%d] ...\n",
+                            (*pRequest)->parent.info.fn, errno, strerror(errno), i);
+            (*pRequest)->fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
+                              ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
+                              : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        }
 
+        (*pRequest)->buf            = NULL;
+        (*pRequest)->isAlloced      = FALSE;
+        (*pRequest)->submitted      = FALSE;
+        (*pRequest)->accessDone     = FALSE;
+        (*pRequest)->canceled       = FALSE;
+        (*pRequest)->nbytes         = pCreateInfo->size;
+        (*pRequest)->offset         = lseek((*pRequest)->fd, pCreateInfo->offset, SEEK_CUR);
+
+        if ((*pRequest)->parent.info.direction == ASYNC_FILE_ACCESS_WRITE && (*pRequest)->fd >= 0)
+        {
+            ftruncate((*pRequest)->fd, (*pRequest)->nbytes);
+        }
+        fstat((*pRequest)->fd, &(*pRequest)->fsb);
+    }
+
+    printf("file = %s: req_addr = %p.\n", (*pRequest)->parent.info.fn, (*pRequest));
 
     return res;
 }
 
-/// Alloc mmap request buffer
-static ret_t mmap_request_alloc_buffer(async_file_accessor_t       *thiz,
-                                      async_file_access_request_t *pAsyncRequest,
-                                      void                       **buf)
+/// Alloc mmap write request buffer
+static ret_t mmap_request_alloc_write_buffer(async_file_accessor_t       *thiz,
+                                             async_file_access_request_t *pAsyncRequest,
+                                             void                       **buffer)
 {
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t       *pRequest      = (mmap_request_t *)pAsyncRequest;
@@ -62,15 +90,38 @@ static ret_t mmap_request_alloc_buffer(async_file_accessor_t       *thiz,
 
     if (RET_OK == res)
     {
+        if (pRequest->nbytes > 0)
+        {
+            (*buffer)                   = mmap(NULL, pRequest->nbytes, PROT_READ | PROT_WRITE,
+                                         MAP_SHARED, pRequest->fd, pRequest->nbytes);
+            for (int i=0; MAP_FAILED==(*buffer) && i<RETRY_TIMES; i++)
+            {
+                printf("ERROR: file [%s] mmap fail! error: %d - %s. Retrying[%d] ...\n",
+                                        pRequest->parent.info.fn, errno, strerror(errno), i);
+                (*buffer)               = mmap(NULL, pRequest->nbytes, PROT_READ | PROT_WRITE,
+                                         MAP_SHARED, pRequest->fd, pRequest->nbytes);
+            }
+            pRequest->buf               = *buffer;
+            pRequest->isAlloced         = TRUE;
+
+            printf("file = %s: req_addr = %p, buf_addr = %p.\n",
+                    pRequest->parent.info.fn, pRequest, pRequest->buf);
+        }
+        else
+        {
+            res = RET_BAD_VALUE;
+            printf("ERROR: invalid malloc buffer size! res = %d.\n", res);
+        }
     }
 
     return res;
 }
 
-/// Import mmap request buffer
-static ret_t mmap_request_import_buffer(async_file_accessor_t       *thiz,
-                                       async_file_access_request_t *pAsyncRequest,
-                                       void                       **buf)
+/**********************************************************************************************************************/
+/// Import mmap read only request buffer
+static ret_t mmap_request_import_read_buffer(async_file_accessor_t       *thiz,
+                                             async_file_access_request_t *pAsyncRequest,
+                                             void                        *buffer)
 {
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t       *pRequest      = (mmap_request_t *)pAsyncRequest;
@@ -79,6 +130,27 @@ static ret_t mmap_request_import_buffer(async_file_accessor_t       *thiz,
 
     if (RET_OK == res)
     {
+        if (buffer != NULL)
+        {
+            buffer = mmap(NULL, pRequest->nbytes, PROT_READ | PROT_WRITE,
+                    MAP_SHARED, pRequest->fd, pRequest->nbytes);
+            for (int i=0; MAP_FAILED==buffer && i<RETRY_TIMES; i++)
+            {
+                printf("ERROR: file [%s] mmap fail! error: %d - %s. Retrying[%d] ...\n",
+                        pRequest->parent.info.fn, errno, strerror(errno), i);
+                buffer = mmap(NULL, pRequest->nbytes, PROT_READ,
+                        MAP_SHARED, pRequest->fd, pRequest->nbytes);
+            }
+            pRequest->buf = buffer;
+
+            printf("file = %s: req_addr = %p, buf_addr = %p.\n",
+                    pRequest->parent.info.fn, pRequest, pRequest->buf);
+        }
+        else
+        {
+            res = RET_BAD_VALUE;
+            printf("ERROR: invalid import buffer empty! res = %d.\n", res);
+        }
     }
 
     return res;
@@ -86,7 +158,7 @@ static ret_t mmap_request_import_buffer(async_file_accessor_t       *thiz,
 
 /// Put mmap request
 static ret_t mmap_put_request(async_file_accessor_t       *thiz,
-                             async_file_access_request_t *pAsyncRequest)
+                              async_file_access_request_t *pAsyncRequest)
 {
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t       *pRequest      = (mmap_request_t *)pAsyncRequest;
@@ -95,6 +167,20 @@ static ret_t mmap_put_request(async_file_accessor_t       *thiz,
 
     if (RET_OK == res)
     {
+        res = ASYNC_FILE_ACCESS_WRITE == pRequest->parent.info.direction ? aio_write(&pRequest->cb)
+                                                                         : aio_read(&pRequest->cb);
+
+        if (res != RET_OK)
+        {
+            if (TRUE == pRequest->isAlloced)
+            {
+                free((void*)pRequest->cb.aio_buf);
+                pRequest->buf           = NULL;
+                pRequest->cb.aio_buf    = NULL;
+            }
+            printf("ERROR: failed to initiate the async IO operation! error: %d - %s.\n", errno, strerror(errno));
+        }
+        pRequest->submitted = TRUE;
     }
 
     if (RET_OK == res && pMmapAccessor->req_count % REQ_LIST_BUFSIZE == 0)
@@ -216,8 +302,8 @@ static mmap_file_accessor_t g_mmapFileAccessor =
         .type               = ASYNC_FILE_ACCESSOR_MMAP,
 
         .getRequest         = mmap_get_request,
-        .allocRequestBuf    = mmap_request_alloc_buffer,
-        .importRequestBuf   = mmap_request_import_buffer,
+        .allocWriteBuf      = mmap_request_alloc_write_buffer,
+        .importReadBuf      = mmap_request_import_read_buffer,
         .putRequest         = mmap_put_request,
         .waitRequest        = mmap_wait_request,
         .cancelRequest      = mmap_cancel_request,

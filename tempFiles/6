@@ -1,0 +1,125 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <pthread.h>
+
+typedef struct {
+    int fd;
+    size_t length;
+    off_t offset;
+    void* buffer;
+    int completed; // 标记读写是否完成
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+} AsyncIORequest;
+
+// 异步读取线程函数
+void* asyncReadThread(void* param) {
+    AsyncIORequest* request = (AsyncIORequest*)param;
+
+    // 映射文件到内存
+    void* mmapAddr = mmap(NULL, request->length, PROT_READ, MAP_PRIVATE, request->fd, request->offset);
+    if (mmapAddr == MAP_FAILED) {
+        pthread_mutex_lock(&request->mutex);
+        request->completed = -1; // 读取失败
+        pthread_mutex_unlock(&request->mutex);
+
+        pthread_cond_signal(&request->cond);
+
+        return NULL;
+    }
+
+    // 复制数据到缓冲区
+    memcpy(request->buffer, mmapAddr, request->length);
+
+    // 解除文件内存映射
+    munmap(mmapAddr, request->length);
+
+    pthread_mutex_lock(&request->mutex);
+    request->completed = 0; // 读取完成
+    pthread_mutex_unlock(&request->mutex);
+
+    pthread_cond_signal(&request->cond);
+
+    return NULL;
+}
+
+// 异步写入线程函数
+void* asyncWriteThread(void* param) {
+    AsyncIORequest* request = (AsyncIORequest*)param;
+
+    // 映射文件到内存
+    void* mmapAddr = mmap(NULL, request->length, PROT_WRITE, MAP_SHARED, request->fd, request->offset);
+    if (mmapAddr == MAP_FAILED) {
+        pthread_mutex_lock(&request->mutex);
+        request->completed = -1; // 写入失败
+        pthread_mutex_unlock(&request->mutex);
+
+        pthread_cond_signal(&request->cond);
+
+        return NULL;
+    }
+
+    // 复制数据到缓冲区
+    memcpy(mmapAddr, request->buffer, request->length);
+
+    // 刷新文件到磁盘
+    if (msync(mmapAddr, request->length, MS_SYNC) == -1) {
+        pthread_mutex_lock(&request->mutex);
+        request->completed = -1; // 写入失败
+        pthread_mutex_unlock(&request->mutex);
+
+        pthread_cond_signal(&request->cond);
+
+        return NULL;
+    }
+
+    // 解除文件内存映射
+    munmap(mmapAddr, request->length);
+
+    pthread_mutex_lock(&request->mutex);
+    request->completed = 0; // 写入完成
+    pthread_mutex_unlock(&request->mutex);
+
+    pthread_cond_signal(&request->cond);
+
+    return NULL;
+}
+
+// 异步读取函数
+void asyncRead(int fd, size_t length, off_t offset, void* buffer) {
+    // 创建异步读取请求
+    AsyncIORequest* request = (AsyncIORequest*)malloc(sizeof(AsyncIORequest));
+    if (request == NULL) {
+        perror("malloc");
+        return;
+    }
+
+    // 初始化请求结构体
+    request->fd = fd;
+    request->length = length;
+    request->offset = offset;
+    request->buffer = buffer;
+    request->completed = 0;
+
+    // 创建互斥锁和条件变量
+    pthread_mutex_init(&request->mutex, NULL);
+    pthread_cond_init(&request->cond, NULL);
+
+    // 创建异步读取线程并启动
+    pthread_t thread;
+    int result = pthread_create(&thread, NULL, asyncReadThread, request);
+    if (result != 0) {
+        perror("pthread_create");
+        free(request);
+        return;
+    }
+
+    pthread_detach(thread);
+}
+
+// 异步写入函数
+void asyncWrite(int fd, size_t length, off_t offset, void* buffer) {
+    // 创建异步写入请求
+    AsyncIORequest* request = (

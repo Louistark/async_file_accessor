@@ -25,7 +25,10 @@ typedef struct __mmap_request
     async_file_access_request_t     parent;
 
     s32                             fd;         /// file descriptor
+    struct stat                     fsb;        /// file state block
     void                           *buf;        /// data buffer
+    u32                             nbytes;     /// data length
+    u32                             offset;     /// file operate offset
 
     bool                            isValid;    /// check whether request valid
     bool                            isAlloced;  /// whether buffer is alloced by mmap

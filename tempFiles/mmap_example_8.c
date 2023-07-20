@@ -116,6 +116,7 @@ void async_file_read_async(off_t offset, size_t size, void* buffer) {
     task.offset = offset;
     task.size = size;
     task.buffer = buffer;
+    printf("async_file_read_async.\n");
     async_file_task_queue_push(&g_task_queue, &task);
 }
 
@@ -129,49 +130,75 @@ void async_file_write_async(off_t offset, size_t size, void* buffer) {
 }
 
 int main() {
+
     // 打开文件
+    printf("Open file.\n");
     g_file_fd = open("test.txt", O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    abort();
     if (g_file_fd == -1) {
         perror("open failed");
         exit(1);
     }
+
     // 将文件扩展到指定大小
+    printf("将文件扩展到指定大小.\n");
     int ret = ftruncate(g_file_fd, FILE_SIZE);
     if (ret == -1) {
         perror("ftruncate failed");
         exit(1);
     }
+
     // 将文件映射到内存中
+    printf("将文件映射到内存中.\n");
     g_buffer = mmap(NULL, FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, g_file_fd, 0);
     if (g_buffer == MAP_FAILED) {
         perror("mmap failed");
         exit(1);
     }
+
     // 初始化异步文件读写线程池
+    printf("初始化异步文件读写线程池.\n");
     async_file_init();
+
     // 异步读取文件
+    printf("异步读取文件.\n");
     char read_buffer[FILE_SIZE];
     async_file_read_async(0, FILE_SIZE, read_buffer);
+
     // 等待异步读取完成
+    printf("等待异步读取完成.\n");
     pthread_mutex_lock(&g_file_mutex);
+    printf("1.\n");
     while (!g_file_done) {
+        printf("2.\n");
         pthread_cond_wait(&g_file_cond, &g_file_mutex);
     }
+    printf("3.\n");
     g_file_done = 0;
+    printf("4.\n");
     pthread_mutex_unlock(&g_file_mutex);
+
     // 输出读取到的文件内容
+    printf("输出读取到的文件内容.\n");
     printf("file content: %s\\n", read_buffer);
+
     // 异步写入文件
+    printf("异步写入文件.\n");
     char write_buffer[] = "hello world";
     async_file_write_async(0, sizeof(write_buffer), write_buffer);
+
     // 等待异步写入完成
+    printf("等待异步写入完成.\n");
     pthread_mutex_lock(&g_file_mutex);
     while (!g_file_done) {
         pthread_cond_wait(&g_file_cond, &g_file_mutex);
     }
     g_file_done = 0;
     pthread_mutex_unlock(&g_file_mutex);
+
     // 关闭文件
+    printf("关闭文件.\n");
     close(g_file_fd);
+
     return 0;
 }

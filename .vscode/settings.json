@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "async_file_accessor.h": "c"
+        "async_file_accessor.h": "c",
+        "signal.h": "c"
     }
 }

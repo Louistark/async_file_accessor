@@ -1,0 +1,209 @@
+初始化线程池.
+-- 线程池状态：当前活跃线程数[0]，繁忙线程数[0]，空闲线程数[0].
+thread_pool_init: 创建线程池中的线程: 0.
+thread_pool_init: 创建线程池中的线程: 1.
+worker_thread[0]: 线程创建完成，开始接收任务.
+-- 线程池状态：当前活跃线程数[1]，繁忙线程数[0]，空闲线程数[1].
+worker_thread[0]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[0]: task_queue 解锁，任务队列中没有任务，等待中...
+thread_pool_init: 创建线程池中的线程: 2.
+worker_thread[1]: 线程创建完成，开始接收任务.
+-- 线程池状态：当前活跃线程数[2]，繁忙线程数[0]，空闲线程数[2].
+worker_thread[1]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[1]: task_queue 解锁，任务队列中没有任务，等待中...
+thread_pool_init: 创建线程池中的线程: 3.
+worker_thread[2]: 线程创建完成，开始接收任务.
+-- 线程池状态：当前活跃线程数[3]，繁忙线程数[0]，空闲线程数[3].
+worker_thread[2]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[2]: task_queue 解锁，任务队列中没有任务，等待中...
+worker_thread[3]: 线程创建完成，开始接收任务.
+-- 线程池状态：当前活跃线程数[4]，繁忙线程数[0]，空闲线程数[4].
+worker_thread[3]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[3]: task_queue 解锁，任务队列中没有任务，等待中...
+thread_pool_init: 创建线程池中的线程: 4.
+向线程池中提交工作任务: 0.
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+worker_thread[4]: 线程创建完成，开始接收任务.
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+向线程池中提交工作任务: 1.
+worker_thread[0]: task_queue 加锁，开始获取任务.
+worker_thread[0]: 通知任务队列未满.
+worker_thread[0]: task_queue 解锁，取出任务成功，剩余任务数[0].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[0]: 开始执行任务.
+任务执行中 Task function executed with argument: 0
+worker_thread[4]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[4]: task_queue 解锁，任务队列中没有任务，等待中...
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+worker_thread[0]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[0]: task_queue 解锁，任务队列中没有任务，等待中...
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+向线程池中提交工作任务: 2.
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[2].
+向线程池中提交工作任务: 3.
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[3].
+向线程池中提交工作任务: 4.
+worker_thread[1]: task_queue 加锁，开始获取任务.
+worker_thread[1]: 通知任务队列未满.
+worker_thread[1]: task_queue 解锁，取出任务成功，剩余任务数[2].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[1]: 开始执行任务.
+任务执行中 Task function executed with argument: 1
+worker_thread[2]: task_queue 加锁，开始获取任务.
+worker_thread[2]: 通知任务队列未满.
+worker_thread[2]: task_queue 解锁，取出任务成功，剩余任务数[1].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+worker_thread[1]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[1]: 通知任务队列未满.
+worker_thread[1]: task_queue 解锁，取出任务成功，剩余任务数[0].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[2]: 开始执行任务.
+任务执行中 Task function executed with argument: 2
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[2]，空闲线程数[3].
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+worker_thread[1]: 开始执行任务.
+任务执行中 Task function executed with argument: 3
+向线程池中提交工作任务: 5.
+worker_thread[3]: task_queue 加锁，开始获取任务.
+worker_thread[3]: 通知任务队列未满.
+worker_thread[3]: task_queue 解锁，取出任务成功，剩余任务数[0].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[0]: task_queue 加锁，开始获取任务.
+worker_thread[0]: task_queue 解锁，任务队列中没有任务，等待中...
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[3]: 开始执行任务.
+任务执行中 Task function executed with argument: 4
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+向线程池中提交工作任务: 6.
+worker_thread[2]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[2]: 通知任务队列未满.
+worker_thread[2]: task_queue 解锁，取出任务成功，剩余任务数[0].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+worker_thread[1]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[1]: task_queue 解锁，任务队列中没有任务，等待中...
+worker_thread[3]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[3]: task_queue 解锁，任务队列中没有任务，等待中...
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[2]: 开始执行任务.
+任务执行中 Task function executed with argument: 5
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+worker_thread[4]: task_queue 加锁，开始获取任务.
+worker_thread[4]: task_queue 解锁，任务队列中没有任务，等待中...
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+worker_thread[0]: task_queue 加锁，开始获取任务.
+worker_thread[0]: 通知任务队列未满.
+worker_thread[0]: task_queue 解锁，取出任务成功，剩余任务数[0].
+向线程池中提交工作任务: 7.
+worker_thread[2]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[2]: task_queue 解锁，任务队列中没有任务，等待中...
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[0]: 开始执行任务.
+任务执行中 Task function executed with argument: 6
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+向线程池中提交工作任务: 8.
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[2].
+向线程池中提交工作任务: 9.
+worker_thread[0]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[0]: 通知任务队列未满.
+worker_thread[0]: task_queue 解锁，取出任务成功，剩余任务数[1].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[0]: 开始执行任务.
+任务执行中 Task function executed with argument: 7
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+worker_thread[3]: task_queue 加锁，开始获取任务.
+worker_thread[3]: 通知任务队列未满.
+worker_thread[3]: task_queue 解锁，取出任务成功，剩余任务数[0].
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[3]: 开始执行任务.
+任务执行中 Task function executed with argument: 8
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+worker_thread[3]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[3]: task_queue 解锁，任务队列中没有任务，等待中...
+worker_thread[1]: task_queue 加锁，开始获取任务.
+worker_thread[1]: task_queue 解锁，任务队列中没有任务，等待中...
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+线程池即将关闭，不再接收工作任务...
+向线程池中提交哨兵任务: 0.
+worker_thread[4]: task_queue 加锁，开始获取任务.
+worker_thread[4]: 通知任务队列未满.
+worker_thread[4]: task_queue 解锁，取出任务成功，剩余任务数[0].
+worker_thread[0]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[0]: task_queue 解锁，任务队列中没有任务，等待中...
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[1]，空闲线程数[4].
+worker_thread[4]: 开始执行任务.
+任务执行中 Task function executed with argument: 9
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+-- 线程池状态：当前活跃线程数[5]，繁忙线程数[0]，空闲线程数[5].
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+向线程池中提交哨兵任务: 1.
+worker_thread[4]: task_queue 加锁，尝试从队列中获取任务.
+worker_thread[4]: 通知任务队列未满.
+worker_thread[4]: task_queue 解锁，取出任务成功，剩余任务数[0].
+worker_thread[4]: 收到哨兵任务，线程退出.
+worker_thread[4]: 线程退出.
+worker_thread[2]: task_queue 加锁，开始获取任务.
+worker_thread[2]: task_queue 解锁，任务队列中没有任务，等待中...
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+向线程池中提交哨兵任务: 2.
+worker_thread[3]: task_queue 加锁，开始获取任务.
+worker_thread[3]: 通知任务队列未满.
+worker_thread[3]: task_queue 解锁，取出任务成功，剩余任务数[0].
+worker_thread[3]: 收到哨兵任务，线程退出.
+worker_thread[3]: 线程退出.
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+向线程池中提交哨兵任务: 3.
+worker_thread[1]: task_queue 加锁，开始获取任务.
+worker_thread[1]: 通知任务队列未满.
+worker_thread[1]: task_queue 解锁，取出任务成功，剩余任务数[0].
+worker_thread[1]: 收到哨兵任务，线程退出.
+worker_thread[1]: 线程退出.
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+向线程池中提交哨兵任务: 4.
+worker_thread[0]: task_queue 加锁，开始获取任务.
+worker_thread[0]: 通知任务队列未满.
+worker_thread[0]: task_queue 解锁，取出任务成功，剩余任务数[0].
+worker_thread[0]: 收到哨兵任务，线程退出.
+worker_thread[0]: 线程退出.
+thread_pool_submit: task_queue 加锁，尝试向队列中添加任务.
+thread_pool_submit: 通知任务队列非空.
+thread_pool_submit: task_queue 解锁，任务添加完成，剩余任务数[1].
+工作线程[0]已回收，剩余活跃线程数[4]，繁忙线程数[0]，空闲线程数[4].
+工作线程[1]已回收，剩余活跃线程数[3]，繁忙线程数[0]，空闲线程数[3].
+worker_thread[2]: task_queue 加锁，开始获取任务.
+worker_thread[2]: 通知任务队列未满.
+worker_thread[2]: task_queue 解锁，取出任务成功，剩余任务数[0].
+worker_thread[2]: 收到哨兵任务，线程退出.
+worker_thread[2]: 线程退出.
+工作线程[2]已回收，剩余活跃线程数[2]，繁忙线程数[0]，空闲线程数[2].
+工作线程[3]已回收，剩余活跃线程数[1]，繁忙线程数[0]，空闲线程数[1].
+工作线程[4]已回收，剩余活跃线程数[0]，繁忙线程数[0]，空闲线程数[0].
+线程池已销毁，程序退出.

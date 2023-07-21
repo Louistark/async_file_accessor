@@ -6,6 +6,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+/// @TODO: 提取任务函数、任务函数参数、任务队列
+
 typedef struct
 {
     int fd;

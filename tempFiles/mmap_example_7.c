@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 
 typedef struct
@@ -45,7 +46,7 @@ void *asyncReadThread(void *param)
     pthread_mutex_lock(&request->mutex);
     request->completed = 1; // 读取完成
     printf("异步读取线程函数: 读取完成.\n");
-    printf("读取内容： %s\n", request->buffer);
+    printf("读取内容： %s\n", (char *)request->buffer);
     pthread_mutex_unlock(&request->mutex);
 
     pthread_cond_signal(&request->cond);

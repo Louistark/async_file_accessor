@@ -6,7 +6,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-/// @TODO: 提取任务函数、任务函数参数、任务队列
+/// @TODO: 提取任务函数(mmap_async_read, mmap_async_write)、任务函数参数(request)、任务队列(req_list)
 
 typedef struct
 {

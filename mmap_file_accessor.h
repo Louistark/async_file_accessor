@@ -34,7 +34,7 @@ typedef struct __mmap_request
     bool                            isValid;                /// check whether request valid
     bool                            isAlloced;              /// whether buffer is alloced by mmap
     bool                            submitted;              /// whether request submitted
-    bool                            accessDone;             /// whether access request done
+    u8                              accessDone;             /// 0: not_processed, 1: success, -1: fail
     bool                            canceled;               /// whether access canceled
 
 } mmap_request_t;

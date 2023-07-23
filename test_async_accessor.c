@@ -59,7 +59,7 @@ ret_t aio_write_once()
     if(RET_OK == res)
     {
         void *buf = NULL;
-        res = pFileAccessor->allocRequestBuf(pFileAccessor, pNewRequest, &buf);
+        res = pFileAccessor->allocWriteBuf(pFileAccessor, pNewRequest, &buf);
 
         memset(buf, 'a', data_size);
         res = pFileAccessor->putRequest(pFileAccessor, pNewRequest);
@@ -99,7 +99,7 @@ ret_t aio_read_once()
 
     if(RET_OK == res)
     {
-        res = pFileAccessor->importRequestBuf(pFileAccessor, pNewRequest, buf);
+        res = pFileAccessor->importReadBuf(pFileAccessor, pNewRequest, buf);
         res = pFileAccessor->putRequest(pFileAccessor, pNewRequest);
     }
 

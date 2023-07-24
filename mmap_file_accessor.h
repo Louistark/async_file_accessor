@@ -20,6 +20,18 @@ extern "C" {
 
 #define THREAD_POOL_SIZE 5
 
+typedef enum __request_stat
+{
+    REQUEST_STAT_INIT               = 0,                    /// request initialized
+    REQUEST_STAT_SUBMITTED,                                 /// request submitted to task queue
+    REQUEST_STAT_PROCESSED,                                 /// request acquired by worker thread
+    REQUEST_STAT_IOSUCCESS,                                 /// request read/write success
+    REQUEST_STAT_IOFAIL,                                    /// request read/write fail
+    REQUEST_STAT_CANCEL,                                    /// request canceled
+    REQUEST_STAT_MAX,
+
+} request_stat_t;
+
 /// mmap request struct (inherited from __async_file_access_request)
 typedef struct __mmap_request
 {
@@ -31,11 +43,9 @@ typedef struct __mmap_request
     u32                             nbytes;                 /// data length
     u32                             offset;                 /// file operate offset
 
-    s8                              accessDone;             /// 0: not_processed, 1: success, -1: fail
     bool                            isValid;                /// check whether request valid
     bool                            isAlloced;              /// whether buffer is alloced by mmap
-    bool                            submitted;              /// whether request submitted
-    bool                            canceled;               /// whether access canceled
+    request_stat_t                  status;                 /// request status
     pthread_mutex_t                 lock;                   /// accessDone status lock
     pthread_cond_t                  isFinished;             /// request done or timeout
 

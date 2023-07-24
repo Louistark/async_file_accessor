@@ -45,14 +45,14 @@ static void *mmapRead(void *param)
     {
         munmap(mmapAddr, pRequest->nbytes);
         pthread_mutex_lock(&(pRequest->lock));
-        pRequest->accessDone = 1;
+        pRequest->status = REQUEST_STAT_IOSUCCESS;
         pthread_cond_signal(&(pRequest->isFinished));
         pthread_mutex_unlock(&(pRequest->lock));
     }
     else
     {
         pthread_mutex_lock(&(pRequest->lock));
-        pRequest->accessDone = -1;
+        pRequest->status = REQUEST_STAT_IOFAIL;
         pthread_cond_signal(&(pRequest->isFinished));
         pthread_mutex_unlock(&(pRequest->lock));
         printf("ERROR: file [%s] read fail! error: %d - %s.\n", pRequest->parent.info.fn, errno, strerror(errno));
@@ -70,7 +70,7 @@ static void *mmapWrite(void *param)
     if (msync(pRequest->buf, pRequest->nbytes, MS_SYNC) != -1)
     {
         pthread_mutex_lock(&(pRequest->lock));
-        pRequest->accessDone = 1;
+        pRequest->status = REQUEST_STAT_IOSUCCESS;
         pthread_cond_signal(&(pRequest->isFinished));
         pthread_mutex_unlock(&(pRequest->lock));
         munmap(pRequest->buf, pRequest->nbytes);
@@ -78,7 +78,7 @@ static void *mmapWrite(void *param)
     else
     {
         pthread_mutex_lock(&(pRequest->lock));
-        pRequest->accessDone = -1;
+        pRequest->status = REQUEST_STAT_IOFAIL;
         pthread_cond_signal(&(pRequest->isFinished));
         pthread_mutex_unlock(&(pRequest->lock));
         printf("ERROR: file [%s] write fail! error: %d - %s.\n", pRequest->parent.info.fn, errno, strerror(errno));
@@ -264,9 +264,7 @@ static ret_t mmap_get_request(async_file_accessor_t            *thiz,
         {
             (*pRequest)->buf            = NULL;
             (*pRequest)->isAlloced      = FALSE;
-            (*pRequest)->submitted      = FALSE;
-            (*pRequest)->accessDone     = FALSE;
-            (*pRequest)->canceled       = FALSE;
+            (*pRequest)->status         = REQUEST_STAT_INIT;
             (*pRequest)->nbytes         = pCreateInfo->size;
             (*pRequest)->offset         = lseek((*pRequest)->fd, pCreateInfo->offset, SEEK_CUR);
 
@@ -304,7 +302,7 @@ static ret_t mmap_request_alloc_write_buffer(async_file_accessor_t       *thiz,
     if (pRequest->nbytes <= 0)
     {
         res = RET_BAD_VALUE;
-        pRequest->accessDone = -1;
+        pRequest->status = REQUEST_STAT_IOFAIL;
         printf("ERROR: invalid malloc buffer size! res = %d.\n", res);
     }
 
@@ -326,7 +324,7 @@ static ret_t mmap_request_alloc_write_buffer(async_file_accessor_t       *thiz,
         else
         {
             res = RET_BAD_VALUE;
-            pRequest->accessDone = -1;
+            pRequest->status = REQUEST_STAT_IOFAIL;
             printf("ERROR: file [%s] write buffer alloc fail! error: %d - %s.\n",
                     pRequest->parent.info.fn, errno, strerror(errno));
         }
@@ -349,7 +347,7 @@ static ret_t mmap_request_import_read_buffer(async_file_accessor_t       *thiz,
     if (NULL == buffer)
     {
         res = RET_BAD_VALUE;
-        pRequest->accessDone = -1;
+        pRequest->status = REQUEST_STAT_IOFAIL;
         printf("ERROR: invalid import buffer empty! res = %d.\n", res);
     }
 
@@ -369,7 +367,7 @@ static ret_t mmap_request_import_read_buffer(async_file_accessor_t       *thiz,
         else
         {
             res = RET_BAD_VALUE;
-            pRequest->accessDone = -1;
+            pRequest->status = REQUEST_STAT_IOFAIL;
             printf("ERROR: file [%s] read buffer import fail! error: %d - %s.\n",
                    pRequest->parent.info.fn, errno, strerror(errno));
         }
@@ -405,7 +403,7 @@ static ret_t mmap_put_request(async_file_accessor_t       *thiz,
             }
             printf("ERROR: failed to initiate the async IO operation! error: %d - %s.\n", errno, strerror(errno));
         }
-        pRequest->submitted = TRUE;
+        pRequest->status = REQUEST_STAT_SUBMITTED;
     }
 
     return res;
@@ -421,10 +419,12 @@ static ret_t mmap_wait_request(async_file_accessor_t       *thiz,
 
     ret_t res = mmap_check_request_valid(pRequest);
 
-    if (RET_OK != res || !pRequest->submitted || pRequest->canceled || -1 == pRequest->accessDone)
+    if (RET_OK != res                           ||
+        pRequest->status <= REQUEST_STAT_INIT   ||
+        pRequest->status >= REQUEST_STAT_CANCEL)
     {
         res = RET_INVALID_OPERATION;
-        printf("Error: invalid request! res = %d.\n", res);
+        printf("Error: cannot wait an invalid request! res = %d.\n", res);
     }
     else if (RET_OK == res && 0 == pRequest->accessDone)
     {

@@ -101,7 +101,7 @@ static ret_t aio_get_request(async_file_accessor_t            *thiz,
         (*pRequest)->fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
                               ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
                               : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT, 0666);
-        for (int i=0; (*pRequest)->fd==-1 && i<RETRY_TIMES; i++)
+        for (int i=0; (*pRequest)->fd==-1 && i<MAX_RETRY_TIMES; i++)
         {
             printf("ERROR: file [%s] open fail! error: %d - %s. Retrying[%d] ...\n",
                             (*pRequest)->parent.info.fn, errno, strerror(errno), i);
@@ -142,7 +142,7 @@ static ret_t aio_request_alloc_write_buffer(async_file_accessor_t       *thiz,
         if (pRequest->cb.aio_nbytes > 0)
         {
             (*buffer)                   = malloc(pRequest->cb.aio_nbytes);
-            for (int i=0; NULL==(*buffer) && i<RETRY_TIMES; i++)
+            for (int i=0; NULL==(*buffer) && i<MAX_RETRY_TIMES; i++)
             {
                 printf("ERROR: file [%s] buffer malloc fail! Retrying[%d] ...\n", pRequest->parent.info.fn, i);
                 (*buffer)               = malloc(pRequest->cb.aio_nbytes);

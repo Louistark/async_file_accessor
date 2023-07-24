@@ -238,5 +238,14 @@ int main()
     free(task);
     printf("线程池已销毁，程序退出.\n");
 
+    
+    // int retry_times = 0;
+    // do
+    // {
+    //     printf("retry_times: %d\n", retry_times);
+    // }
+    // while (retry_times++ < 5);
+
+
     return 0;
 }

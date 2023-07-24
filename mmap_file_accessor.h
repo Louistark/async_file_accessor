@@ -31,11 +31,13 @@ typedef struct __mmap_request
     u32                             nbytes;                 /// data length
     u32                             offset;                 /// file operate offset
 
+    s8                              accessDone;             /// 0: not_processed, 1: success, -1: fail
     bool                            isValid;                /// check whether request valid
     bool                            isAlloced;              /// whether buffer is alloced by mmap
     bool                            submitted;              /// whether request submitted
-    u8                              accessDone;             /// 0: not_processed, 1: success, -1: fail
     bool                            canceled;               /// whether access canceled
+    pthread_mutex_t                 lock;                   /// accessDone status lock
+    pthread_cond_t                  isFinished;             /// request done or timeout
 
 } mmap_request_t;
 
@@ -91,6 +93,15 @@ typedef struct __mmap_file_accessor
 
 } mmap_file_accessor_t;
 
+/// Struct define timeout params
+typedef struct __timeout_args
+{
+    u32                             timeout_ms;             /// timeout millisecond
+    s8                             *finished;               /// pointer to function finish flag
+    pthread_mutex_t                *lock;                   /// pointer to status lock
+    pthread_cond_t                 *cond;                   /// pointer to status condition
+
+} timeout_args_t;
 
 /// Acqiure single static mmap accessor
 mmap_file_accessor_t* MMAP_File_Accessor_Get_Instance();

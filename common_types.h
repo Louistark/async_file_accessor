@@ -11,7 +11,6 @@
 #ifndef __COMMON_TYPES_H__
 #define __COMMON_TYPES_H__
 
-#include <sys/mman.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -22,9 +21,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
+
 
 #ifdef __cplusplus
 extern "C" {

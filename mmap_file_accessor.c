@@ -10,6 +10,82 @@
 
 #include "mmap_file_accessor.h"
 #include "async_file_accessor.h"
+#include "common_types.h"
+
+/// Timeout thread funtion
+static void *timeout_thread(void *args)
+{
+    timeout_args_t *t_args = (timeout_args_t *)args;
+    struct timespec timeout =
+    {
+        .tv_sec     = t_args->timeout_ms / 1000,
+        .tv_nsec    = (t_args->timeout_ms % 1000) * 1000000,
+    };
+
+    if (0 == *(t_args->finished))
+    {
+        nanosleep(&timeout, NULL);
+    }
+
+    pthread_mutex_lock(t_args->lock);
+    *(t_args->finished) = (0 == *(t_args->finished)) ? -1 : *(t_args->finished);
+    pthread_cond_signal(t_args->cond);
+    pthread_mutex_unlock(t_args->lock);
+
+    pthread_exit(NULL);
+}
+
+/// Read request task process function
+static void *mmapRead(void *param)
+{
+    mmap_request_t *pRequest    = (mmap_request_t *)param;
+    void           *mmapAddr    = NULL;
+
+    if (memcpy(pRequest->buf, mmapAddr, pRequest->nbytes) != NULL)
+    {
+        munmap(mmapAddr, pRequest->nbytes);
+        pthread_mutex_lock(&(pRequest->lock));
+        pRequest->accessDone = 1;
+        pthread_cond_signal(&(pRequest->isFinished));
+        pthread_mutex_unlock(&(pRequest->lock));
+    }
+    else
+    {
+        pthread_mutex_lock(&(pRequest->lock));
+        pRequest->accessDone = -1;
+        pthread_cond_signal(&(pRequest->isFinished));
+        pthread_mutex_unlock(&(pRequest->lock));
+        printf("ERROR: file [%s] read fail! error: %d - %s.\n", pRequest->parent.info.fn, errno, strerror(errno));
+    }
+
+    return NULL;
+}
+
+/// Write request task process function
+static void *mmapWrite(void *param)
+{
+    mmap_request_t *pRequest    = (mmap_request_t *)param;
+    void           *mmapAddr    = NULL;
+
+    if (msync(pRequest->buf, pRequest->nbytes, MS_SYNC) != -1)
+    {
+        pthread_mutex_lock(&(pRequest->lock));
+        pRequest->accessDone = 1;
+        pthread_cond_signal(&(pRequest->isFinished));
+        pthread_mutex_unlock(&(pRequest->lock));
+        munmap(pRequest->buf, pRequest->nbytes);
+    }
+    else
+    {
+        pthread_mutex_lock(&(pRequest->lock));
+        pRequest->accessDone = -1;
+        pthread_cond_signal(&(pRequest->isFinished));
+        pthread_mutex_unlock(&(pRequest->lock));
+        printf("ERROR: file [%s] write fail! error: %d - %s.\n", pRequest->parent.info.fn, errno, strerror(errno));
+    }
+
+    return NULL;
+}
 
 /// Worker thread funtion
 static void *worker_thread(void *arg)
@@ -139,87 +215,11 @@ static ret_t thread_pool_submit(thread_pool_t *thread_pool, task_t *task)
     }
     else if(!thread_pool->info.isRunning && !task->is_sentinel)
     {
+        res = RET_ALREADY_EXISTS;
         printf("Warning: thread pool is closing, task rejected!\n");
     }
 
     return res;
-}
-
-/// Read request task process function
-void *mmapRead(void *param)
-{
-    void *mmapAddr = NULL;
-    mmap_request_t *pRequest = (mmap_request_t *)param;
-
-    mmapAddr = mmap(NULL, pRequest->nbytes, PROT_READ, MAP_PRIVATE, pRequest->fd, pRequest->offset);
-    for (int i=0; mmapAddr == MAP_FAILED && i<RETRY_TIMES; i++)
-    {
-        printf("ERROR: file [%s] mmap fail! error: %d - %s. Retrying[%d] ...\n",
-                        pRequest->parent.info.fn, errno, strerror(errno), i);
-        mmapAddr = mmap(NULL, pRequest->nbytes, PROT_READ, MAP_PRIVATE, pRequest->fd, pRequest->offset);
-    }
-    if (mmapAddr == MAP_FAILED)
-    {
-        pRequest->accessDone = -1;
-        return NULL;
-    }
-
-    // 复制数据到缓冲区
-    printf("异步读取线程函数: 复制数据到缓冲区.\n");
-    memcpy(request->buffer, mmapAddr, request->length);
-
-    // 解除文件内存映射
-    printf("异步读取线程函数: 解除文件内存映射.\n");
-    munmap(mmapAddr, request->length);
-
-    pthread_mutex_lock(&request->mutex);
-    request->completed = 1; // 读取完成
-    printf("异步读取线程函数: 读取完成.\n");
-    pthread_mutex_unlock(&request->mutex);
-
-    pthread_cond_signal(&request->cond);
-    printf("异步读取线程函数: pthread_cond_signal.\n");
-
-    return NULL;
-}
-
-/// Write request task process function
-void *asyncWriteThread(void *param)
-{
-    AsyncIORequest *request = (AsyncIORequest *)param;
-
-    // 刷新文件到磁盘
-    printf("异步写入线程函数: 刷新文件到磁盘.\n");
-    if (msync(request->buffer, request->length, MS_SYNC) == -1)
-    {
-        pthread_mutex_lock(&request->mutex);
-        request->completed = -1; // 写入失败
-        pthread_mutex_unlock(&request->mutex);
-
-        pthread_cond_signal(&request->cond);
-
-        return NULL;
-    }
-
-    // 解除文件内存映射
-    printf("异步写入线程函数: 解除文件内存映射.\n");
-    munmap(request->buffer, request->length);
-
-    pthread_mutex_lock(&request->mutex);
-    request->completed = 1; // 写入完成
-    printf("异步写入线程函数: 写入完成.\n");
-    pthread_mutex_unlock(&request->mutex);
-
-    pthread_cond_signal(&request->cond);
-    printf("异步写入线程函数: pthread_cond_signal.\n");
-
-    return NULL;
-}
-
-
-// Called when MMAP operation is done, check result and free control block
-static void mmap_callback(sigval_t sv)
-{
 }
 
 /// Ckeck whether mmap request valid
@@ -240,7 +240,8 @@ static ret_t mmap_get_request(async_file_accessor_t            *thiz,
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t      **pRequest      = (mmap_request_t **)pAsyncRequest;
 
-    ret_t res = RET_OK;
+    ret_t   res         = RET_OK;
+    u32     retry_times = 0;
     *pRequest = (mmap_request_t *)malloc(sizeof(mmap_request_t));
     memset(*pRequest, 0, sizeof(mmap_request_t));
 
@@ -252,17 +253,12 @@ static ret_t mmap_get_request(async_file_accessor_t            *thiz,
 
     if (RET_OK == res)
     {
-        (*pRequest)->fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
-                              ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
-                              : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT | O_TRUNC, 0666);
-        for (int i=1; (*pRequest)->fd==-1 && i<=RETRY_TIMES; i++)
-        {
-            printf("ERROR: file [%s] open fail! error: %d - %s. Retrying[%d/%d] ...\n",
-                            (*pRequest)->parent.info.fn, errno, strerror(errno), i, RETRY_TIMES);
+        do {
             (*pRequest)->fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
                               ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
                               : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT | O_TRUNC, 0666);
         }
+        while ((*pRequest)->fd==-1 && retry_times++ < MAX_RETRY_TIMES);
 
         if ((*pRequest)->fd >= 0)
         {
@@ -302,38 +298,43 @@ static ret_t mmap_request_alloc_write_buffer(async_file_accessor_t       *thiz,
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t       *pRequest      = (mmap_request_t *)pAsyncRequest;
 
-    ret_t res = mmap_check_request_valid(pRequest);
+    u32     retry_times = 0;
+    ret_t   res         = mmap_check_request_valid(pRequest);
+
+    if (pRequest->nbytes <= 0)
+    {
+        res = RET_BAD_VALUE;
+        pRequest->accessDone = -1;
+        printf("ERROR: invalid malloc buffer size! res = %d.\n", res);
+    }
 
     if (RET_OK == res)
     {
-        if (pRequest->nbytes > 0)
-        {
-            (*buffer)                   = mmap(NULL, pRequest->nbytes, PROT_READ | PROT_WRITE,
-                                         MAP_SHARED, pRequest->fd, pRequest->nbytes);
-            for (int i=0; MAP_FAILED==(*buffer) && i<RETRY_TIMES; i++)
-            {
-                printf("ERROR: file [%s] mmap fail! error: %d - %s. Retrying[%d] ...\n",
-                                        pRequest->parent.info.fn, errno, strerror(errno), i);
-                (*buffer)               = mmap(NULL, pRequest->nbytes, PROT_READ | PROT_WRITE,
-                                         MAP_SHARED, pRequest->fd, pRequest->nbytes);
-            }
-            pRequest->buf               = *buffer;
-            pRequest->isAlloced         = TRUE;
+        do {
+            (*buffer) = mmap(NULL, pRequest->nbytes, PROT_READ | PROT_WRITE,
+                                MAP_SHARED, pRequest->fd, pRequest->nbytes);
+        }
+        while (MAP_FAILED == (*buffer) && retry_times++ < MAX_RETRY_TIMES);
 
+        if (MAP_FAILED != (*buffer))
+        {
+            pRequest->buf       = *buffer;
+            pRequest->isAlloced = TRUE;
             printf("file = %s: req_addr = %p, buf_addr = %p.\n",
                     pRequest->parent.info.fn, pRequest, pRequest->buf);
         }
         else
         {
             res = RET_BAD_VALUE;
-            printf("ERROR: invalid malloc buffer size! res = %d.\n", res);
+            pRequest->accessDone = -1;
+            printf("ERROR: file [%s] write buffer alloc fail! error: %d - %s.\n",
+                    pRequest->parent.info.fn, errno, strerror(errno));
         }
     }
 
     return res;
 }
 
-/**********************************************************************************************************************/
 /// Import mmap read only request buffer
 static ret_t mmap_request_import_read_buffer(async_file_accessor_t       *thiz,
                                              async_file_access_request_t *pAsyncRequest,
@@ -342,30 +343,35 @@ static ret_t mmap_request_import_read_buffer(async_file_accessor_t       *thiz,
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t       *pRequest      = (mmap_request_t *)pAsyncRequest;
 
-    ret_t res = mmap_check_request_valid(pRequest);
+    u32     retry_times = 0;
+    ret_t   res         = mmap_check_request_valid(pRequest);
+
+    if (NULL == buffer)
+    {
+        res = RET_BAD_VALUE;
+        pRequest->accessDone = -1;
+        printf("ERROR: invalid import buffer empty! res = %d.\n", res);
+    }
 
     if (RET_OK == res)
     {
-        if (buffer != NULL)
-        {
-            buffer = mmap(NULL, pRequest->nbytes, PROT_READ | PROT_WRITE,
-                    MAP_SHARED, pRequest->fd, pRequest->nbytes);
-            for (int i=0; MAP_FAILED==buffer && i<RETRY_TIMES; i++)
-            {
-                printf("ERROR: file [%s] mmap fail! error: %d - %s. Retrying[%d] ...\n",
-                        pRequest->parent.info.fn, errno, strerror(errno), i);
-                buffer = mmap(NULL, pRequest->nbytes, PROT_READ,
-                        MAP_SHARED, pRequest->fd, pRequest->nbytes);
-            }
-            pRequest->buf = buffer;
+        do {
+            buffer = mmap(NULL, pRequest->nbytes, PROT_READ, MAP_PRIVATE, pRequest->fd, pRequest->offset);
+        }
+        while (MAP_FAILED == buffer && retry_times++ < MAX_RETRY_TIMES);
 
+        if (MAP_FAILED != buffer)
+        {
+            pRequest->buf = buffer;
             printf("file = %s: req_addr = %p, buf_addr = %p.\n",
                     pRequest->parent.info.fn, pRequest, pRequest->buf);
         }
         else
         {
             res = RET_BAD_VALUE;
-            printf("ERROR: invalid import buffer empty! res = %d.\n", res);
+            pRequest->accessDone = -1;
+            printf("ERROR: file [%s] read buffer import fail! error: %d - %s.\n",
+                   pRequest->parent.info.fn, errno, strerror(errno));
         }
     }
 
@@ -383,28 +389,23 @@ static ret_t mmap_put_request(async_file_accessor_t       *thiz,
 
     if (RET_OK == res)
     {
-        res = ASYNC_FILE_ACCESS_WRITE == pRequest->parent.info.direction ? aio_write(&pRequest->cb)
-                                                                         : aio_read(&pRequest->cb);
+        task_t *pRequestTask        = (task_t *)malloc(sizeof(task_t));
+        pRequestTask->is_sentinel   = false;
+        pRequestTask->argument      = pRequest;
+        pRequestTask->function      = ASYNC_FILE_ACCESS_WRITE == pRequest->parent.info.direction
+                                      ? mmapWrite : mmapRead;
 
+        res = thread_pool_submit(&(pMmapAccessor->distributor), pRequestTask);
         if (res != RET_OK)
         {
             if (TRUE == pRequest->isAlloced)
             {
-                free((void*)pRequest->cb.aio_buf);
+                free((void*)pRequest->buf);
                 pRequest->buf           = NULL;
-                pRequest->cb.aio_buf    = NULL;
             }
             printf("ERROR: failed to initiate the async IO operation! error: %d - %s.\n", errno, strerror(errno));
         }
         pRequest->submitted = TRUE;
-    }
-
-    if (RET_OK == res && pMmapAccessor->req_count % REQ_LIST_BUFSIZE == 0)
-    {
-    }
-
-    if (RET_OK == res)
-    {
     }
 
     return res;
@@ -412,21 +413,46 @@ static ret_t mmap_put_request(async_file_accessor_t       *thiz,
 
 /// Wait for an mmap request finish
 static ret_t mmap_wait_request(async_file_accessor_t       *thiz,
-                              async_file_access_request_t *pAsyncRequest,
-                              u32                          timeout_ms)
+                               async_file_access_request_t *pAsyncRequest,
+                               u32                          timeout_ms)
 {
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t       *pRequest      = (mmap_request_t *)pAsyncRequest;
 
     ret_t res = mmap_check_request_valid(pRequest);
 
-    if (RET_OK != res || !pRequest->submitted || pRequest->canceled)
+    if (RET_OK != res || !pRequest->submitted || pRequest->canceled || -1 == pRequest->accessDone)
     {
         res = RET_INVALID_OPERATION;
         printf("Error: invalid request! res = %d.\n", res);
     }
-    else if (RET_OK == res && !pRequest->accessDone)
+    else if (RET_OK == res && 0 == pRequest->accessDone)
     {
+        if (timeout_ms > 0)
+        {
+            pthread_t timeoutThread;
+            timeout_args_t t_args =
+            {
+                .timeout_ms = timeout_ms,
+                .finished   = &(pRequest->accessDone),
+                .lock       = &(pRequest->lock),
+                .cond       = &(pRequest->isFinished),
+            };
+            pthread_create(&timeoutThread, NULL, timeout_thread, (void*)&t_args);
+            while (0 == pRequest->accessDone)
+            {
+                pthread_cond_wait(&(pRequest->isFinished), &(pRequest->lock));
+            }
+            pthread_cancel(timeoutThread);
+            pthread_join(timeoutThread, NULL);
+        }
+        else
+        {
+            while (0 == pRequest->accessDone)
+            {
+                pthread_cond_wait(&(pRequest->isFinished), &(pRequest->lock));
+            }
+        }
     }
 
     return res;
@@ -434,7 +460,7 @@ static ret_t mmap_wait_request(async_file_accessor_t       *thiz,
 
 /// Cancel an mmap request
 static ret_t mmap_cancel_request(async_file_accessor_t       *thiz,
-                                async_file_access_request_t *pAsyncRequest)
+                                 async_file_access_request_t *pAsyncRequest)
 {
     mmap_file_accessor_t *pMmapAccessor = (mmap_file_accessor_t *)thiz;
     mmap_request_t       *pRequest      = (mmap_request_t *)pAsyncRequest;

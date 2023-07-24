@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 #define REQ_LIST_BUFSIZE    1024
-#define RETRY_TIMES         2
+#define MAX_RETRY_TIMES     2
 
 
 typedef enum __async_file_accessor_type

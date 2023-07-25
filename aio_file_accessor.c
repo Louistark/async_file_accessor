@@ -325,8 +325,7 @@ static ret_t aio_wait_all_request(async_file_accessor_t *thiz,
 
     if (NULL == pAioAccessor || NULL == pAioAccessor->req_list || 0 == pAioAccessor->req_count)
     {
-        res = RET_BAD_VALUE;
-        printf("ERROR: invalid aio file accessor! res = %d.\n", res);
+        printf("Empty aio accessor, no need to wait.\n");
     }
     else
     {

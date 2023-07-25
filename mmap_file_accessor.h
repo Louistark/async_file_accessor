@@ -24,7 +24,6 @@ typedef enum __request_stat
 {
     REQUEST_STAT_INIT               = 0,                    /// request initialized
     REQUEST_STAT_SUBMITTED,                                 /// request submitted to task queue
-    REQUEST_STAT_PROCESSED,                                 /// request acquired by worker thread
     REQUEST_STAT_IOSUCCESS,                                 /// request read/write success
     REQUEST_STAT_IOFAIL,                                    /// request read/write fail
     REQUEST_STAT_CANCEL,                                    /// request canceled
@@ -80,6 +79,7 @@ typedef struct __thread_pool_info
     u32                             busyThreadNum;          /// count of busy threads
     u32                             idleThreadNum;          /// count of idle threads
     u32                             aliveThreadNum;         /// count of alive threads
+    bool                            isInitialized;          /// whether thread pool is initialized
     bool                            isRunning;              /// whether thread pool is running
     pthread_mutex_t                 lock;                   /// thread pool infomation lock
 
@@ -107,7 +107,7 @@ typedef struct __mmap_file_accessor
 typedef struct __timeout_args
 {
     u32                             timeout_ms;             /// timeout millisecond
-    s8                             *finished;               /// pointer to function finish flag
+    request_stat_t                 *status;                 /// pointer to request status
     pthread_mutex_t                *lock;                   /// pointer to status lock
     pthread_cond_t                 *cond;                   /// pointer to status condition
 

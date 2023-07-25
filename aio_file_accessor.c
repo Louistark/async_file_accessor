@@ -39,7 +39,7 @@ static void aio_callback(sigval_t sv)
 static ret_t aio_check_request_valid(aio_request_t *pRequest)
 {
     ret_t res = RET_OK;
-    
+
     if (NULL == pRequest)
     {
         res = RET_BAD_VALUE;
@@ -374,8 +374,7 @@ static ret_t aio_cancel_all_requests(async_file_accessor_t *thiz)
 
     if (NULL == pAioAccessor || NULL == pAioAccessor->req_list || 0 == pAioAccessor->req_count)
     {
-        res = RET_BAD_VALUE;
-        printf("ERROR: invalid aio file accessor! res = %d.\n", res);
+        printf("Empty aio accessor, no need to cancel.\n");
     }
     else
     {
@@ -398,8 +397,7 @@ static ret_t aio_release_all_resources(async_file_accessor_t *thiz)
 
     if (NULL == pAioAccessor || NULL == pAioAccessor->req_list || 0 == pAioAccessor->req_count)
     {
-        res = RET_BAD_VALUE;
-        printf("ERROR: invalid aio file accessor! res = %d.\n", res);
+        printf("Empty aio accessor, no need to release.\n");
     }
     else
     {

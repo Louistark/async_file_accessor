@@ -15,6 +15,7 @@ add_executable ( ${ELF}
     ../../test_async_accessor.c
     ../../async_file_accessor.c
     ../../aio_file_accessor.c
+    ../../mmap_file_accessor.c
 )
 
 target_link_libraries (${ELF}  -lrt)

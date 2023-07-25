@@ -19,24 +19,26 @@ ret_t mmap_read_once();
 
 int main()
 {
-   printf("This is a test for async accessor.\n");
+    printf("This is a test for async accessor.\n");
 
-   ret_t res = RET_OK;
+    ret_t res = RET_OK;
 
-   res = aio_write_once();
-   res = aio_read_once();
+    // res = aio_write_once();
+    // res = aio_read_once();
 
-   printf("Start to cancel and release all aio request...\n");
-   async_file_accessor_t *pAioFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_AIO);
-   pAioFileAccessor->cancelAll(pAioFileAccessor);
-   pAioFileAccessor->releaseAll(pAioFileAccessor);
+    res = mmap_write_once();
 
-   printf("Start to cancel and release all mmap request...\n");
-   async_file_accessor_t *pMmapFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_AIO);
-   pMmapFileAccessor->cancelAll(pMmapFileAccessor);
-   pMmapFileAccessor->releaseAll(pMmapFileAccessor);
+    printf("Start to cancel and release all aio request...\n");
+    async_file_accessor_t *pAioFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_AIO);
+    pAioFileAccessor->cancelAll(pAioFileAccessor);
+    pAioFileAccessor->releaseAll(pAioFileAccessor);
 
-   return res;
+    printf("Start to cancel and release all mmap request...\n");
+    async_file_accessor_t *pMmapFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_MMAP);
+    pMmapFileAccessor->cancelAll(pMmapFileAccessor);
+    pMmapFileAccessor->releaseAll(pMmapFileAccessor);
+
+    return res;
 }
 
 ret_t aio_write_once()
@@ -127,7 +129,10 @@ ret_t mmap_write_once()
     ret_t   res          = RET_OK;
     u32     data_size    = 1024;
     u32     timeout_ms   = 1000;
+printf("1.\n");
     async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_MMAP);
+
+printf("2.\n");
     async_file_access_request_t *pNewRequest = NULL;
     async_file_access_request_info_t createInfo = 
     {
@@ -137,25 +142,35 @@ ret_t mmap_write_once()
         .offset     = 0,
     };
 
+printf("3.\n");
     res = pFileAccessor->getRequest(pFileAccessor, &pNewRequest, &createInfo);
 
+printf("4.\n");
     if(RET_OK == res)
     {
         void *buf = NULL;
-        res = pFileAccessor->allocRequestBuf(pFileAccessor, pNewRequest, &buf);
+printf("5.\n");
+        res = pFileAccessor->allocWriteBuf(pFileAccessor, pNewRequest, &buf);
+printf("6.\n");
 
         memset(buf, 'a', data_size);
+printf("7.\n");
         res = pFileAccessor->putRequest(pFileAccessor, pNewRequest);
+printf("8.\n");
     }
 
     if(RET_OK == res)
     {
+printf("9.\n");
         res = pFileAccessor->waitRequest(pFileAccessor, pNewRequest, timeout_ms);
+printf("10.\n");
 
         if (res != RET_OK)
         {
             printf("Cancel request to file: %s\n", pNewRequest->info.fn);
+printf("11.\n");
             res = pFileAccessor->cancelRequest(pFileAccessor, pNewRequest);
+printf("12.\n");
         }
     }
 

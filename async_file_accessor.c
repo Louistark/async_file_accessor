@@ -11,6 +11,7 @@
 
 #include "async_file_accessor.h"
 #include "aio_file_accessor.h"
+#include "mmap_file_accessor.h"
 // #include "mmap_file_accessor.h"
 
 async_file_accessor_t* Async_File_Accessor_Get_Instance(async_file_accessor_type_t type)
@@ -26,6 +27,7 @@ async_file_accessor_t* Async_File_Accessor_Get_Instance(async_file_accessor_type
         }
         case ASYNC_FILE_ACCESSOR_MMAP:
         {
+            pFileAcessor = (async_file_accessor_t *)MMAP_File_Accessor_Get_Instance();
             break;
         }
         default:

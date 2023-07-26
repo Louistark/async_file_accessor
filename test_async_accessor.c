@@ -11,12 +11,19 @@
 #include "async_file_accessor.h"
 #include "aio_file_accessor.h"
 
-ret_t aio_write_once();
-ret_t aio_read_once();
+#define ASYNC_IO_METHOD     ASYNC_FILE_ACCESSOR_AIO
+// #define ASYNC_IO_METHOD     ASYNC_FILE_ACCESSOR_MMAP
 
-ret_t mmap_write_once();
-ret_t mmap_read_once();
+typedef struct
+{
+    char8  *input_filename;
+    char8  *output_filename;
+    void   *buf;
+    u32     size;
 
+} file_t;
+
+ret_t create_test_data_set(file_t ***file_set, u32 *count);
 ret_t read_one_picture_from_file(void **buffer, char8 *filename, u32 *length);
 ret_t write_one_picture_to_file(void *buffer, char8 *filename, u32 length);
 
@@ -26,204 +33,90 @@ int main()
 
     ret_t res = RET_OK;
 
-    // res = aio_write_once();
-    // res = aio_read_once();
+    int         i           = 0;
+    u32         fileCnt     = 0;
+    file_t    **file_set    = NULL;
 
-    // res = mmap_write_once();
-    // res = mmap_read_once();
+    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_IO_METHOD);
 
-    u32   length        = 0;
-    void  *pic_buffer   = NULL;
-    char8 *src_filename = "./pictures/one_cat.jpg";
-    char8 *des_filename = "./pictures/another_cat.jpg";
+    printf("Create test data set.\n");
+    res = create_test_data_set(&file_set, &fileCnt);
 
-    // char8 *src_filename = "./test_aio_write_1.txt";
-    res = read_one_picture_from_file(&pic_buffer, src_filename, &length);
-    res = write_one_picture_to_file(pic_buffer, des_filename, length);
-
-// printf("read buffer: %s\n", (char8 *)pic_buffer);
-
-    printf("Start to cancel and release all aio request...\n");
-    async_file_accessor_t *pAioFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_AIO);
-    pAioFileAccessor->cancelAll(pAioFileAccessor);
-    pAioFileAccessor->releaseAll(pAioFileAccessor);
-
-    // printf("Start to cancel and release all mmap request...\n");
-    // async_file_accessor_t *pMmapFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_MMAP);
-    // pMmapFileAccessor->cancelAll(pMmapFileAccessor);
-    // pMmapFileAccessor->releaseAll(pMmapFileAccessor);
-
-    free(pic_buffer);
-    pic_buffer = NULL;
-
-    return res;
-}
-
-ret_t aio_write_once()
-{
-    ret_t   res          = RET_OK;
-    u32     data_size    = 1024;
-    u32     timeout_ms   = 1000;
-    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_AIO);
-    async_file_access_request_t *pNewRequest = NULL;
-    async_file_access_request_info_t createInfo = 
+    printf("Start to read all files.\n");
+    for (i = 0; i < fileCnt; i++)
     {
-        .direction  = ASYNC_FILE_ACCESS_WRITE,
-        .fn         = "./test_aio_write_1.txt",
-        .size       = data_size,
-        .offset     = 0,
-    };
-
-    res = pFileAccessor->getRequest(pFileAccessor, &pNewRequest, &createInfo);
-
-    if(RET_OK == res)
-    {
-        void *buf = NULL;
-        res = pFileAccessor->allocWriteBuf(pFileAccessor, pNewRequest, &buf);
-
-        memset(buf, 'a', data_size);
-        res = pFileAccessor->putRequest(pFileAccessor, pNewRequest);
+        read_one_picture_from_file(&(file_set[i]->buf),
+                                   file_set[i]->input_filename,
+                                   &(file_set[i]->size));
     }
 
-    if(RET_OK == res)
-    {
-        res = pFileAccessor->waitRequest(pFileAccessor, pNewRequest, timeout_ms);
+    pFileAccessor->waitAll(pFileAccessor, 0);
 
-        if (res != RET_OK)
-        {
-            printf("Cancel request to file: %s\n", pNewRequest->info.fn);
-            res = pFileAccessor->cancelRequest(pFileAccessor, pNewRequest);
-        }
+    sleep(1);
+
+    printf("Start to write all files.\n");
+    for (i = 0; i < fileCnt; i++)
+    {
+        write_one_picture_to_file(file_set[i]->buf,
+                                  file_set[i]->output_filename,
+                                  file_set[i]->size);
+    }
+
+    pFileAccessor->waitAll(pFileAccessor, 0);
+
+    sleep(1);
+
+    printf("Start to cancel and release all request...\n");
+    pFileAccessor->cancelAll(pFileAccessor);
+    pFileAccessor->releaseAll(pFileAccessor);
+
+
+    for (i = 0; i < fileCnt; i++)
+    {
+        free(file_set[i]->buf);
+        file_set[i]->buf = NULL;
     }
 
     return res;
 }
 
-ret_t aio_read_once()
+ret_t create_test_data_set(file_t ***file_set, u32 *count)
 {
-    ret_t   res          = RET_OK;
-    u32     data_size    = 10*sizeof(char8);
-    u32     timeout_ms   = 1000;
-    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_AIO);
-    async_file_access_request_t *pNewRequest = NULL;
-    async_file_access_request_info_t createInfo = 
-    {
-        .direction  = ASYNC_FILE_ACCESS_READ,
-        .fn         = "./test_aio_write_1.txt",
-        .size       = data_size,
-        .offset     = 0,
-    };
+    ret_t   res         = RET_OK;
 
-    void *buf = malloc(data_size + 1);
-    res = pFileAccessor->getRequest(pFileAccessor, &pNewRequest, &createInfo);
+    *count      = 10;
+    *file_set   = (file_t **)malloc(sizeof(file_t *)*(*count));
 
-    if(RET_OK == res)
+    printf("Creating test file set.\n");
+
+    for (int i = 0; i < *count; i++)
     {
-        res = pFileAccessor->importReadBuf(pFileAccessor, pNewRequest, buf);
-        res = pFileAccessor->putRequest(pFileAccessor, pNewRequest);
+        (*file_set)[i] = (file_t *)malloc(sizeof(file_t));
     }
 
-    if(RET_OK == res)
-    {
-        res = pFileAccessor->waitRequest(pFileAccessor, pNewRequest, timeout_ms);
+    (*file_set)[0]->input_filename   = "./pictures/source_data_set/cat_0.jpg";
+    (*file_set)[1]->input_filename   = "./pictures/source_data_set/cat_1.jpg";
+    (*file_set)[2]->input_filename   = "./pictures/source_data_set/cat_2.jpg";
+    (*file_set)[3]->input_filename   = "./pictures/source_data_set/cat_3.jpg";
+    (*file_set)[4]->input_filename   = "./pictures/source_data_set/cat_4.jpg";
+    (*file_set)[5]->input_filename   = "./pictures/source_data_set/cat_5.jpg";
+    (*file_set)[6]->input_filename   = "./pictures/source_data_set/cat_6.jpg";
+    (*file_set)[7]->input_filename   = "./pictures/source_data_set/cat_7.jpg";
+    (*file_set)[8]->input_filename   = "./pictures/source_data_set/cat_8.jpg";
+    (*file_set)[9]->input_filename   = "./pictures/source_data_set/cat_9.jpg";
 
-        if (res != RET_OK)
-        {
-            printf("Cancel request to file: %s", pNewRequest->info.fn);
-            res = pFileAccessor->cancelRequest(pFileAccessor, pNewRequest);
-        }
-    }
+    printf("Creating test file set.\n");
 
-    printf("Read from file[%s]: %s.\n", createInfo.fn, (char8 *)buf);
-
-    free(buf);
-    buf = NULL;
-
-    return res;
-}
-
-ret_t mmap_write_once()
-{
-    ret_t   res          = RET_OK;
-    u32     data_size    = 1024;
-    u32     timeout_ms   = 1000;
-    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_MMAP);
-
-    async_file_access_request_t *pNewRequest = NULL;
-    async_file_access_request_info_t createInfo = 
-    {
-        .direction  = ASYNC_FILE_ACCESS_WRITE,
-        .fn         = "./test_aio_write_1.txt",
-        .size       = data_size,
-        .offset     = 0,
-    };
-
-    res = pFileAccessor->getRequest(pFileAccessor, &pNewRequest, &createInfo);
-
-    if(RET_OK == res)
-    {
-        void *buf = NULL;
-        res = pFileAccessor->allocWriteBuf(pFileAccessor, pNewRequest, &buf);
-
-        memset(buf, 'a', data_size);
-        res = pFileAccessor->putRequest(pFileAccessor, pNewRequest);
-    }
-
-    if(RET_OK == res)
-    {
-        res = pFileAccessor->waitRequest(pFileAccessor, pNewRequest, timeout_ms);
-
-        if (res != RET_OK)
-        {
-            printf("Cancel request to file: %s\n", pNewRequest->info.fn);
-            res = pFileAccessor->cancelRequest(pFileAccessor, pNewRequest);
-        }
-    }
-
-    return res;
-}
-
-ret_t mmap_read_once()
-{
-    ret_t   res          = RET_OK;
-    u32     data_size    = 10*sizeof(char8);
-    u32     timeout_ms   = 1000;
-    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_MMAP);
-    async_file_access_request_t *pNewRequest = NULL;
-    async_file_access_request_info_t createInfo = 
-    {
-        .direction  = ASYNC_FILE_ACCESS_READ,
-        .fn         = "./test_aio_write_1.txt",
-        .size       = data_size,
-        .offset     = 0,
-    };
-
-    void *buf = malloc(data_size + 1);
-    res = pFileAccessor->getRequest(pFileAccessor, &pNewRequest, &createInfo);
-
-    if(RET_OK == res)
-    {
-        res = pFileAccessor->importReadBuf(pFileAccessor, pNewRequest, buf);
-        res = pFileAccessor->putRequest(pFileAccessor, pNewRequest);
-    }
-
-    if(RET_OK == res)
-    {
-        res = pFileAccessor->waitRequest(pFileAccessor, pNewRequest, timeout_ms);
-
-        if (res != RET_OK)
-        {
-            printf("Cancel request to file: %s", pNewRequest->info.fn);
-            res = pFileAccessor->cancelRequest(pFileAccessor, pNewRequest);
-        }
-    }
-
-    printf("Read from file[%s]: %s.\n", createInfo.fn, (char8 *)buf);
-
-    free(buf);
-    buf = NULL;
-
-    return res;
+    (*file_set)[0]->output_filename  = "./pictures/output/new_cat_0.jpg";
+    (*file_set)[1]->output_filename  = "./pictures/output/new_cat_1.jpg";
+    (*file_set)[2]->output_filename  = "./pictures/output/new_cat_2.jpg";
+    (*file_set)[3]->output_filename  = "./pictures/output/new_cat_3.jpg";
+    (*file_set)[4]->output_filename  = "./pictures/output/new_cat_4.jpg";
+    (*file_set)[5]->output_filename  = "./pictures/output/new_cat_5.jpg";
+    (*file_set)[6]->output_filename  = "./pictures/output/new_cat_6.jpg";
+    (*file_set)[7]->output_filename  = "./pictures/output/new_cat_7.jpg";
+    (*file_set)[8]->output_filename  = "./pictures/output/new_cat_8.jpg";
+    (*file_set)[9]->output_filename  = "./pictures/output/new_cat_9.jpg";
 }
 
 ret_t read_one_picture_from_file(void **buffer, char8 *filename, u32 *length)
@@ -237,7 +130,7 @@ ret_t read_one_picture_from_file(void **buffer, char8 *filename, u32 *length)
     *length = fsb.st_size;
 printf("read_one_picture_from_file: 1, file length = %d.\n", *length);
 
-    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_AIO);
+    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_IO_METHOD);
 // printf("read_one_picture_from_file: 2.\n");
     async_file_access_request_t *pNewRequest = NULL;
     async_file_access_request_info_t createInfo = 
@@ -262,21 +155,6 @@ printf("read_one_picture_from_file: 5, buffer length = %d.\n", *length);
 // printf("read_one_picture_from_file: 7.\n");
     }
 
-    if(RET_OK == res)
-    {
-// printf("read_one_picture_from_file: 8.\n");
-        res = pFileAccessor->waitRequest(pFileAccessor, pNewRequest, 0);
-// printf("read_one_picture_from_file: 9.read buffer: %s\n", (char8 *)(*buffer));
-
-        if (res != RET_OK)
-        {
-            printf("Cancel request to file: %s", pNewRequest->info.fn);
-            res = pFileAccessor->cancelRequest(pFileAccessor, pNewRequest);
-        }
-    }
-sleep(1);
-// printf("read_one_picture_from_file: 10.read buffer: %s\n", (char8 *)(*buffer));
-
     close(fd);
 
     return res;
@@ -287,7 +165,7 @@ ret_t write_one_picture_to_file(void *buffer, char8 *filename, u32 length)
     ret_t   res          = RET_OK;
     u32     timeout_ms   = 2000;
 printf("write_one_picture_to_file: 1, buffer length = %d.\n", length);
-    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_FILE_ACCESSOR_AIO);
+    async_file_accessor_t *pFileAccessor = Async_File_Accessor_Get_Instance(ASYNC_IO_METHOD);
     async_file_access_request_t *pNewRequest = NULL;
     async_file_access_request_info_t createInfo = 
     {
@@ -314,19 +192,6 @@ printf("write_one_picture_to_file: 7.\n");
         res = pFileAccessor->putRequest(pFileAccessor, pNewRequest);
 printf("write_one_picture_to_file: 8.\n");
     }
-
-    if(RET_OK == res)
-    {
-printf("write_one_picture_to_file: 9.\n");
-        res = pFileAccessor->waitRequest(pFileAccessor, pNewRequest, 0);
-
-        if (res != RET_OK)
-        {
-            printf("Cancel request to file: %s\n", pNewRequest->info.fn);
-            res = pFileAccessor->cancelRequest(pFileAccessor, pNewRequest);
-        }
-    }
-printf("write_one_picture_to_file: 10.\n");
 
     return res;
 }

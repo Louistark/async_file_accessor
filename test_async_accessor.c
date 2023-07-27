@@ -82,11 +82,11 @@ int main(int argc, char *argv[])
         for (i = 0; i < fileCnt; i++)
         {
             read_one_picture_from_file(&(file_set[i]->buf),
-                                    file_set[i]->input_filename,
-                                    &(file_set[i]->size));
+                                       file_set[i]->input_filename,
+                                       &(file_set[i]->size));
         }
 
-        sleep(2);
+        // sleep(2);
 
         pFileAccessor->waitAll(pFileAccessor, 0);
     }
@@ -99,14 +99,14 @@ int main(int argc, char *argv[])
                                             &(file_set[i]->size));
         }
 
-        sleep(2);
+        // sleep(2);
     }
 
     long long read_end_time       = get_time_in_microseconds();
     double elapsed_read_time    = (double)(read_end_time - read_start_time) / 1000;
     printf("\n -- Read %d pictures time consumption: %f ms.\n\n", fileCnt, elapsed_read_time);
 
-    sleep(2);
+    // sleep(2);
 
     printf("- Start to write all files.\n");
     long long write_start_time = get_time_in_microseconds();
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
                                     file_set[i]->size);
         }
 
-        sleep(2);
+        // sleep(2);
 
         pFileAccessor->waitAll(pFileAccessor, 0);
     }
@@ -133,14 +133,14 @@ int main(int argc, char *argv[])
                                         file_set[i]->size);
         }
 
-        sleep(2);
+        // sleep(2);
     }
 
     long long write_end_time = get_time_in_microseconds();
     double elapsed_write_time = (double)(write_end_time - write_start_time) / 1000;
     printf("\n -- Write %d pictures time consumption: %f ms.\n\n", fileCnt, elapsed_write_time);
 
-    sleep(2);
+    // sleep(2);
 
     if (en_async)
     {

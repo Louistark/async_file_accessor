@@ -247,7 +247,7 @@ static ret_t aio_put_request(async_file_accessor_t       *thiz,
         pAioAccessor->req_count++;
     }
 
-    // printf("file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
+    printf("put request: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
 
     return res;
 }
@@ -356,7 +356,9 @@ static ret_t aio_wait_all_requests(async_file_accessor_t *thiz,
         res = req_cnt > 0
                 ? aio_suspend((const struct aiocb *const *)aiocb_list, req_cnt, (timeout_ms > 0) ? &timeout : NULL)
                 : res;
+        
         free(aiocb_list);
+        printf("Wait all request done.\n");
     }
 
     return res;
@@ -379,6 +381,7 @@ static ret_t aio_cancel_all_requests(async_file_accessor_t *thiz)
         {
             aio_request_t *pRequest = pAioAccessor->req_list[i];
             aio_cancel(pRequest->fd, &pRequest->cb);
+            printf("cancel request: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
         }
     }
 
@@ -406,14 +409,17 @@ static ret_t aio_release_all_resources(async_file_accessor_t *thiz)
                 if (!pRequest->accessDone)
                 {
                     aio_cancel(pRequest->fd, &pRequest->cb);
+                    printf("cancel2 request: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
                 }
                 if (pRequest->cb.aio_fildes != -1)
                 {
+                    printf("clase request fd: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
                     close(pRequest->cb.aio_fildes);
                     pRequest->cb.aio_fildes = -1;
                 }
                 if (TRUE == pRequest->isAlloced && pRequest->buf != NULL)
                 {
+                    printf("free request buffer: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
                     free(pRequest->buf);
                     pRequest->buf = NULL;
                 }

@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
                                     &(file_set[i]->size));
         }
 
-        sleep(5);
+        sleep(2);
 
         pFileAccessor->waitAll(pFileAccessor, 0);
     }
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
                                             &(file_set[i]->size));
         }
 
-        sleep(5);
+        sleep(2);
     }
 
     long long read_end_time       = get_time_in_microseconds();
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
                                     file_set[i]->size);
         }
 
-        sleep(5);
+        sleep(2);
 
         pFileAccessor->waitAll(pFileAccessor, 0);
     }
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
                                         file_set[i]->size);
         }
 
-        sleep(5);
+        sleep(2);
     }
 
     long long write_end_time = get_time_in_microseconds();
@@ -169,7 +169,7 @@ ret_t create_test_data_set(file_t ***file_set, u32 *count)
 {
     ret_t res   = RET_OK;
 
-    *count      = 1;
+    *count      = 10;
     *file_set   = (file_t **)malloc(sizeof(file_t *)*(*count));
 
     for (int i = 0; i < *count; i++)
@@ -178,26 +178,26 @@ ret_t create_test_data_set(file_t ***file_set, u32 *count)
     }
 
     (*file_set)[0]->input_filename   = "./pictures/source_data_set/RAW_4K_0.RAW";
-    // (*file_set)[1]->input_filename   = "./pictures/source_data_set/RAW_4K_1.RAW";
-    // (*file_set)[2]->input_filename   = "./pictures/source_data_set/RAW_4K_2.RAW";
-    // (*file_set)[3]->input_filename   = "./pictures/source_data_set/RAW_4K_3.RAW";
-    // (*file_set)[4]->input_filename   = "./pictures/source_data_set/RAW_4K_4.RAW";
-    // (*file_set)[5]->input_filename   = "./pictures/source_data_set/RAW_4K_5.RAW";
-    // (*file_set)[6]->input_filename   = "./pictures/source_data_set/RAW_4K_6.RAW";
-    // (*file_set)[7]->input_filename   = "./pictures/source_data_set/RAW_4K_7.RAW";
-    // (*file_set)[8]->input_filename   = "./pictures/source_data_set/RAW_4K_8.RAW";
-    // (*file_set)[9]->input_filename   = "./pictures/source_data_set/RAW_4K_9.RAW";
+    (*file_set)[1]->input_filename   = "./pictures/source_data_set/RAW_4K_1.RAW";
+    (*file_set)[2]->input_filename   = "./pictures/source_data_set/RAW_4K_2.RAW";
+    (*file_set)[3]->input_filename   = "./pictures/source_data_set/RAW_4K_3.RAW";
+    (*file_set)[4]->input_filename   = "./pictures/source_data_set/RAW_4K_4.RAW";
+    (*file_set)[5]->input_filename   = "./pictures/source_data_set/RAW_4K_5.RAW";
+    (*file_set)[6]->input_filename   = "./pictures/source_data_set/RAW_4K_6.RAW";
+    (*file_set)[7]->input_filename   = "./pictures/source_data_set/RAW_4K_7.RAW";
+    (*file_set)[8]->input_filename   = "./pictures/source_data_set/RAW_4K_8.RAW";
+    (*file_set)[9]->input_filename   = "./pictures/source_data_set/RAW_4K_9.RAW";
 
     (*file_set)[0]->output_filename  = "./pictures/output/new_RAW_4K_0.RAW";
-    // (*file_set)[1]->output_filename  = "./pictures/output/new_RAW_4K_1.RAW";
-    // (*file_set)[2]->output_filename  = "./pictures/output/new_RAW_4K_2.RAW";
-    // (*file_set)[3]->output_filename  = "./pictures/output/new_RAW_4K_3.RAW";
-    // (*file_set)[4]->output_filename  = "./pictures/output/new_RAW_4K_4.RAW";
-    // (*file_set)[5]->output_filename  = "./pictures/output/new_RAW_4K_5.RAW";
-    // (*file_set)[6]->output_filename  = "./pictures/output/new_RAW_4K_6.RAW";
-    // (*file_set)[7]->output_filename  = "./pictures/output/new_RAW_4K_7.RAW";
-    // (*file_set)[8]->output_filename  = "./pictures/output/new_RAW_4K_8.RAW";
-    // (*file_set)[9]->output_filename  = "./pictures/output/new_RAW_4K_9.RAW";
+    (*file_set)[1]->output_filename  = "./pictures/output/new_RAW_4K_1.RAW";
+    (*file_set)[2]->output_filename  = "./pictures/output/new_RAW_4K_2.RAW";
+    (*file_set)[3]->output_filename  = "./pictures/output/new_RAW_4K_3.RAW";
+    (*file_set)[4]->output_filename  = "./pictures/output/new_RAW_4K_4.RAW";
+    (*file_set)[5]->output_filename  = "./pictures/output/new_RAW_4K_5.RAW";
+    (*file_set)[6]->output_filename  = "./pictures/output/new_RAW_4K_6.RAW";
+    (*file_set)[7]->output_filename  = "./pictures/output/new_RAW_4K_7.RAW";
+    (*file_set)[8]->output_filename  = "./pictures/output/new_RAW_4K_8.RAW";
+    (*file_set)[9]->output_filename  = "./pictures/output/new_RAW_4K_9.RAW";
 
     return res;
 }

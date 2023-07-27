@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-#define THREAD_POOL_SIZE 5
+#define THREAD_POOL_SIZE 10
 
 typedef enum __request_stat
 {

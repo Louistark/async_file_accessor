@@ -122,7 +122,7 @@ static ret_t aio_get_request(async_file_accessor_t            *thiz,
         fstat((*pRequest)->fd, &(*pRequest)->fsb);
     }
 
-    printf("file = %s: req_addr = %p.\n", (*pRequest)->parent.info.fn, (*pRequest));
+    // printf("file = %s: req_addr = %p.\n", (*pRequest)->parent.info.fn, (*pRequest));
 
     return res;
 }
@@ -151,8 +151,7 @@ static ret_t aio_request_alloc_write_buffer(async_file_accessor_t       *thiz,
             pRequest->cb.aio_buf        = *buffer;
             pRequest->isAlloced         = TRUE;
 
-            printf("file = %s: req_addr = %p, buf_addr = %p.\n",
-                    pRequest->parent.info.fn, pRequest, pRequest->buf);
+            // printf("file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
         }
         else
         {
@@ -181,8 +180,7 @@ static ret_t aio_request_import_read_buffer(async_file_accessor_t       *thiz,
             pRequest->buf               = buffer;
             pRequest->cb.aio_buf        = buffer;
 
-            printf("file = %s: req_addr = %p, buf_addr = %p.\n",
-                    pRequest->parent.info.fn, pRequest, pRequest->buf);
+            // printf("file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
         }
         else
         {
@@ -249,7 +247,7 @@ static ret_t aio_put_request(async_file_accessor_t       *thiz,
         pAioAccessor->req_count++;
     }
 
-    printf("file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
+    // printf("file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
 
     return res;
 }
@@ -316,8 +314,8 @@ static ret_t aio_cancel_request(async_file_accessor_t       *thiz,
 }
 
 /// Wait for all aio request finish, after this func release all requests
-static ret_t aio_wait_all_request(async_file_accessor_t *thiz,
-                                  u32                    timeout_ms)
+static ret_t aio_wait_all_requests(async_file_accessor_t *thiz,
+                                   u32                    timeout_ms)
 {
     aio_file_accessor_t *pAioAccessor = (aio_file_accessor_t *)thiz;
 
@@ -443,7 +441,7 @@ static aio_file_accessor_t g_aioFileAccessor =
         .putRequest         = aio_put_request,
         .waitRequest        = aio_wait_request,
         .cancelRequest      = aio_cancel_request,
-        .waitAll            = aio_wait_all_request,
+        .waitAll            = aio_wait_all_requests,
         .cancelAll          = aio_cancel_all_requests,
         .releaseAll         = aio_release_all_resources,
     },

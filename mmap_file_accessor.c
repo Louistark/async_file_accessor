@@ -47,6 +47,8 @@ static void *mmapRead(void *param)
         return NULL;
     }
 
+    printf(" ------ Start mmapRead: [%s]\n", pRequest->parent.info.fn);
+
     do {
         mmapAddr = mmap(NULL, pRequest->nbytes, PROT_READ, MAP_PRIVATE, pRequest->fd, pRequest->offset);
     }
@@ -74,6 +76,8 @@ static void *mmapRead(void *param)
         mmapAddr = NULL;
     }
 
+    printf(" ------ Done mmapRead: [%s]\n", pRequest->parent.info.fn);
+
     return NULL;
 }
 
@@ -88,6 +92,8 @@ static void *mmapWrite(void *param)
         pRequest->buf = NULL;
         return NULL;
     }
+
+    printf(" ------ Start mmapWrite: [%s]\n", pRequest->parent.info.fn);
 
     if (msync(pRequest->buf, pRequest->nbytes, MS_SYNC) != -1)
     {
@@ -107,6 +113,8 @@ static void *mmapWrite(void *param)
 
     munmap(pRequest->buf, pRequest->nbytes);
     pRequest->buf = NULL;
+
+    printf(" ------ Done mmapWrite: [%s]\n", pRequest->parent.info.fn);
 
     return NULL;
 }
@@ -155,6 +163,8 @@ static void *worker_thread(void *arg)
         pthread_mutex_lock(&(thread_pool->info.lock));
         thread_pool->info.busyThreadNum++;
         thread_pool->info.idleThreadNum--;
+        printf("-- Thread Pool State: aliveThreadNum[%d], busyThreadNum[%d], idleThreadNum[%d].\n",
+            thread_pool->info.aliveThreadNum, thread_pool->info.busyThreadNum, thread_pool->info.idleThreadNum);
         pthread_mutex_unlock(&(thread_pool->info.lock));
 
         (*(request_task->function))(request_task->argument);
@@ -162,10 +172,12 @@ static void *worker_thread(void *arg)
         pthread_mutex_lock(&(thread_pool->info.lock));
         thread_pool->info.busyThreadNum--;
         thread_pool->info.idleThreadNum++;
+        printf("-- Thread Pool State: aliveThreadNum[%d], busyThreadNum[%d], idleThreadNum[%d].\n",
+            thread_pool->info.aliveThreadNum, thread_pool->info.busyThreadNum, thread_pool->info.idleThreadNum);
         pthread_mutex_unlock(&(thread_pool->info.lock));
     }
 
-    printf("worker_thread[%d]: exit.\n", idx);
+    // printf("worker_thread[%d]: exit.\n", idx);
     pthread_exit(NULL);
 }
 
@@ -202,8 +214,8 @@ static ret_t thread_pool_submit(thread_pool_t *thread_pool, task_t *task)
         task_queue->todoCnt++;
         task_queue->totoalCnt++;
 
-        printf("Task submit success! Total[%d], Todo[%d], Processed[%d].\n",
-            task_queue->totoalCnt, task_queue->todoCnt, task_queue->totoalCnt - task_queue->todoCnt);
+        // printf("Task submit success! Total[%d], Todo[%d], Processed[%d].\n",
+        //     task_queue->totoalCnt, task_queue->todoCnt, task_queue->totoalCnt - task_queue->todoCnt);
         pthread_cond_signal(&(task_queue->not_empty));
         pthread_mutex_unlock(&(task_queue->lock));
     }
@@ -309,8 +321,7 @@ static ret_t mmap_get_request(async_file_accessor_t            *thiz,
         }
     }
 
-    printf("file = %s: fd = %d, req_addr = %p.\n",
-           (*pRequest)->parent.info.fn, (*pRequest)->fd, (*pRequest));
+    // printf("file = %s: fd = %d, req_addr = %p.\n", (*pRequest)->parent.info.fn, (*pRequest)->fd, (*pRequest));
 
     return res;
 }
@@ -345,15 +356,13 @@ static ret_t mmap_request_alloc_write_buffer(async_file_accessor_t       *thiz,
         {
             pRequest->buf       = *buffer;
             pRequest->isAlloced = TRUE;
-            printf("file = %s: req_addr = %p, buf_addr = %p.\n",
-                    pRequest->parent.info.fn, pRequest, pRequest->buf);
+            // printf("file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
         }
         else
         {
             res = RET_BAD_VALUE;
             pRequest->status = REQUEST_STAT_IOFAIL;
-            printf("file = %s: fd = %d, req_addr = %p.\n",
-                    pRequest->parent.info.fn, pRequest->fd, pRequest);
+            // printf("file = %s: fd = %d, req_addr = %p.\n", pRequest->parent.info.fn, pRequest->fd, pRequest);
             printf("ERROR: file [%s] write buffer alloc fail! error: %d - %s.\n",
                     pRequest->parent.info.fn, errno, strerror(errno));
         }
@@ -383,7 +392,7 @@ static ret_t mmap_request_import_read_buffer(async_file_accessor_t       *thiz,
     if (RET_OK == res)
     {
         pRequest->buf = buffer;
-        printf("file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
+        // printf("file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
     }
 
     return res;
@@ -514,8 +523,8 @@ static ret_t mmap_cancel_request(async_file_accessor_t       *thiz,
 }
 
 /// Wait for all mmap request finish, after this func release all requests
-static ret_t mmap_wait_all_request(async_file_accessor_t *thiz,
-                                   u32                    timeout_ms)
+static ret_t mmap_wait_all_requests(async_file_accessor_t *thiz,
+                                    u32                    timeout_ms)
 {
     mmap_file_accessor_t   *pMmapAccessor   = (mmap_file_accessor_t *)thiz;
     task_t                **ppRequestQueue  = pMmapAccessor->distributor.task_queue.request_queue;
@@ -531,56 +540,19 @@ static ret_t mmap_wait_all_request(async_file_accessor_t *thiz,
     {
         if (timeout_ms > 0)
         {
-            printf("timeout not supported.\n");
-            for (int i = 0; i < totoalCnt; i++)
-            {
-                mmap_request_t *pRequest = (mmap_request_t *)(ppRequestQueue[i]->argument);
-
-                pthread_mutex_lock(&(pRequest->lock));
-                while (REQUEST_STAT_SUBMITTED == pRequest->status)
-                {
-                    pthread_cond_wait(&(pRequest->isFinished), &(pRequest->lock));
-                }
-                pthread_mutex_unlock(&(pRequest->lock));
-            }
-            // pthread_t timeoutThread;
-            // timeout_args_t t_args =
-            // {
-            //     .timeout_ms = timeout_ms,
-            //     .status     = &(pRequest->status),
-            //     .lock       = &(pRequest->lock),
-            //     .cond       = &(pRequest->isFinished),
-            // };
-            // pthread_create(&timeoutThread, NULL, timeout_thread, (void*)&t_args);
-
-            // for (int i = 0; i < totoalCnt; i++)
-            // {
-            //     mmap_request_t *pRequest = (mmap_request_t *)(ppRequestQueue[i]->argument);
-
-            //     pthread_mutex_lock(&(pRequest->lock));
-            //     while (REQUEST_STAT_SUBMITTED == pRequest->status)
-            //     {
-            //         pthread_cond_wait(&(pRequest->isFinished), &(pRequest->lock));
-            //     }
-            //     pthread_mutex_unlock(&(pRequest->lock));
-            // }
-
-            // pthread_cancel(timeoutThread);
-            // pthread_join(timeoutThread, NULL);
+            printf("mmap_wait_all_requests: timeout not supported.\n");
         }
-        else
-        {
-            for (int i = 0; i < totoalCnt; i++)
-            {
-                mmap_request_t *pRequest = (mmap_request_t *)(ppRequestQueue[i]->argument);
 
-                pthread_mutex_lock(&(pRequest->lock));
-                while (REQUEST_STAT_SUBMITTED == pRequest->status)
-                {
-                    pthread_cond_wait(&(pRequest->isFinished), &(pRequest->lock));
-                }
-                pthread_mutex_unlock(&(pRequest->lock));
+        for (int i = 0; i < totoalCnt; i++)
+        {
+            mmap_request_t *pRequest = (mmap_request_t *)(ppRequestQueue[i]->argument);
+
+            pthread_mutex_lock(&(pRequest->lock));
+            while (REQUEST_STAT_SUBMITTED == pRequest->status)
+            {
+                pthread_cond_wait(&(pRequest->isFinished), &(pRequest->lock));
             }
+            pthread_mutex_unlock(&(pRequest->lock));
         }
     }
 
@@ -669,7 +641,7 @@ static mmap_file_accessor_t g_mmapFileAccessor =
         .putRequest         = mmap_put_request,
         .waitRequest        = mmap_wait_request,
         .cancelRequest      = mmap_cancel_request,
-        .waitAll            = mmap_wait_all_request,
+        .waitAll            = mmap_wait_all_requests,
         .cancelAll          = mmap_cancel_all_requests,
         .releaseAll         = mmap_release_all_resources,
     },
@@ -716,7 +688,7 @@ void thread_pool_init(thread_pool_t *thread_pool)
         printf("thread_pool_init: Create thread: %d.\n", i);
         pthread_create(&(thread_pool->thread_pool[i]), NULL, worker_thread, thread_pool);
     }
-    
+
     thread_pool->info.isRunning = TRUE;
 }
 
@@ -728,6 +700,6 @@ mmap_file_accessor_t* MMAP_File_Accessor_Get_Instance()
         thread_pool_init(&(g_mmapFileAccessor.distributor));
         g_mmapFileAccessor.distributor.info.isInitialized = TRUE;
     }
-    
+
     return &g_mmapFileAccessor;
 }

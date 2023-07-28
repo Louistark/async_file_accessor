@@ -27,11 +27,23 @@ static void aio_callback(sigval_t sv)
         printf("ERROR: async IO operation fail! error: %d - %s.\n", errno, strerror(errno));
     }
 
-    if (TRUE == pRequest->isAlloced)
+    if (TRUE == pRequest->isAlloced && pRequest->buf != NULL)
     {
         free((void*)pRequest->cb.aio_buf);
         pRequest->buf           = NULL;
         pRequest->cb.aio_buf    = NULL;
+    }
+
+    if (pRequest->fd > 0)
+    {
+        close(pRequest->fd);
+        pRequest->fd = -1;
+    }
+    
+    if (pRequest->cb.aio_fildes > 0)
+    {
+        close(pRequest->cb.aio_fildes);
+        pRequest->cb.aio_fildes = -1;
     }
 }
 
@@ -247,7 +259,7 @@ static ret_t aio_put_request(async_file_accessor_t       *thiz,
         pAioAccessor->req_count++;
     }
 
-    printf("put request: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
+    // printf("put request: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
 
     return res;
 }
@@ -334,52 +346,20 @@ static ret_t aio_wait_all_requests(async_file_accessor_t *thiz,
             aio_request_t *pRequest = pAioAccessor->req_list[i];
             if (pRequest)
             {
-                printf("wait all: file = %s, isValid[%d], isAlloced[%d], submitted[%d], accessDone[%d], canceled[%d].\n",
-                       pRequest->parent.info.fn, pRequest->isValid, pRequest->isAlloced, pRequest->submitted, pRequest->accessDone, pRequest->canceled);
-                if (pRequest->submitted && !pRequest->canceled && !pRequest->accessDone)
+                while (pRequest->submitted && !pRequest->canceled && !pRequest->accessDone ||
+                       pRequest->fd >= 0 || (TRUE == pRequest->isAlloced && pRequest->buf != NULL))
                 {
-                    printf("wait request: file = %s.\n", pRequest->parent.info.fn);
-                    aiocb_list[0] = &(pRequest->cb);
-                    res = aio_suspend((const struct aiocb *const *)aiocb_list, 1, NULL);
-                    res |= (RET_OK == res) ? aio_error(&(pRequest->cb)) : res;
+                    if (pRequest->accessDone && pRequest->fd < 0 &&
+                        (TRUE == pRequest->isAlloced) ^ (pRequest->buf == NULL))
+                    {
+                        printf("wait request: file = %s: req_addr = %p, buf_addr = %p.\n",
+                                pRequest->parent.info.fn, pRequest, pRequest->buf);
+                        break;
+                    }
                 }
+                res |= aio_error(&(pRequest->cb));
             }
         }
-
-        // u32 req_cnt = pAioAccessor->req_count;
-        // struct aiocb  **aiocb_list = (struct aiocb **)malloc(pAioAccessor->req_count * sizeof(struct aiocb*));
-        // struct timespec timeout =
-        // {
-        //     .tv_sec     = timeout_ms / 1000,
-        //     .tv_nsec    = (timeout_ms % 1000) * 1000000,
-        // };
-
-        // for (int i = 0; i < pAioAccessor->req_count; i++)
-        // {
-        //     aio_request_t *pRequest = pAioAccessor->req_list[i];
-        //     if (pRequest)
-        //     {
-        //         printf("wait all: file = %s, isValid[%d], isAlloced[%d], submitted[%d], accessDone[%d], canceled[%d].\n",
-        //                pRequest->parent.info.fn, pRequest->isValid, pRequest->isAlloced, pRequest->submitted, pRequest->accessDone, pRequest->canceled);
-        //         if (!pRequest->submitted ||
-        //             pRequest->canceled ||
-        //             pRequest->accessDone)
-        //         {
-        //             req_cnt--;
-        //         }
-        //         else
-        //         {
-        //             printf("wait request: file = %s.\n", pRequest->parent.info.fn);
-        //             aiocb_list[i] = &(pRequest->cb);
-        //         }
-        //     }
-        // }
-
-        // res = req_cnt > 0
-        //         ? aio_suspend((const struct aiocb *const *)aiocb_list, req_cnt, (timeout_ms > 0) ? &timeout : NULL)
-        //         : res;
-        
-        // free(aiocb_list);
         printf("Wait all request done.\n");
     }
 
@@ -403,7 +383,7 @@ static ret_t aio_cancel_all_requests(async_file_accessor_t *thiz)
         {
             aio_request_t *pRequest = pAioAccessor->req_list[i];
             aio_cancel(pRequest->fd, &pRequest->cb);
-            printf("cancel request: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
+            // printf("cancel request: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
         }
     }
 
@@ -431,17 +411,20 @@ static ret_t aio_release_all_resources(async_file_accessor_t *thiz)
                 if (!pRequest->accessDone)
                 {
                     aio_cancel(pRequest->fd, &pRequest->cb);
-                    printf("cancel2 request: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
+                    printf("cancel request: file = %s: req_addr = %p, buf_addr = %p.\n",
+                           pRequest->parent.info.fn, pRequest, pRequest->buf);
                 }
                 if (pRequest->cb.aio_fildes != -1)
                 {
-                    printf("clase request fd: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
+                    printf("close request fd: file = %s: req_addr = %p, buf_addr = %p.\n",
+                           pRequest->parent.info.fn, pRequest, pRequest->buf);
                     close(pRequest->cb.aio_fildes);
                     pRequest->cb.aio_fildes = -1;
                 }
                 if (TRUE == pRequest->isAlloced && pRequest->buf != NULL)
                 {
-                    printf("free request buffer: file = %s: req_addr = %p, buf_addr = %p.\n", pRequest->parent.info.fn, pRequest, pRequest->buf);
+                    printf("free request buffer: file = %s: req_addr = %p, buf_addr = %p.\n",
+                           pRequest->parent.info.fn, pRequest, pRequest->buf);
                     free(pRequest->buf);
                     pRequest->buf = NULL;
                 }

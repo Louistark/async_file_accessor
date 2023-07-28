@@ -47,7 +47,7 @@ static void *mmapRead(void *param)
         return NULL;
     }
 
-    printf(" ------ Start mmapRead: [%s]\n", pRequest->parent.info.fn);
+    // printf(" ------ Start mmapRead: [%s]\n", pRequest->parent.info.fn);
 
     do {
         mmapAddr = mmap(NULL, pRequest->nbytes, PROT_READ, MAP_PRIVATE, pRequest->fd, pRequest->offset);
@@ -76,7 +76,13 @@ static void *mmapRead(void *param)
         mmapAddr = NULL;
     }
 
-    printf(" ------ Done mmapRead: [%s]\n", pRequest->parent.info.fn);
+    if (pRequest->fd > 0)
+    {
+        close(pRequest->fd);
+        pRequest->fd = -1;
+    }
+
+    // printf(" ------ Done mmapRead: [%s]\n", pRequest->parent.info.fn);
 
     return NULL;
 }
@@ -93,7 +99,7 @@ static void *mmapWrite(void *param)
         return NULL;
     }
 
-    printf(" ------ Start mmapWrite: [%s]\n", pRequest->parent.info.fn);
+    // printf(" ------ Start mmapWrite: [%s]\n", pRequest->parent.info.fn);
 
     if (msync(pRequest->buf, pRequest->nbytes, MS_SYNC) != -1)
     {
@@ -114,7 +120,13 @@ static void *mmapWrite(void *param)
     munmap(pRequest->buf, pRequest->nbytes);
     pRequest->buf = NULL;
 
-    printf(" ------ Done mmapWrite: [%s]\n", pRequest->parent.info.fn);
+    if (pRequest->fd > 0)
+    {
+        close(pRequest->fd);
+        pRequest->fd = -1;
+    }
+
+    // printf(" ------ Done mmapWrite: [%s]\n", pRequest->parent.info.fn);
 
     return NULL;
 }
@@ -149,22 +161,22 @@ static void *worker_thread(void *arg)
         request_task = task_queue->request_queue[task_queue->head];
         task_queue->head++;
         task_queue->todoCnt--;
-        printf("worker_thread[%d]: Acquire task success! Total[%d], Todo[%d], Processed[%d].\n",
-               idx, task_queue->totoalCnt, task_queue->todoCnt, task_queue->totoalCnt - task_queue->todoCnt);
+        // printf("worker_thread[%d]: Acquire task success! Total[%d], Todo[%d], Processed[%d].\n",
+            //    idx, task_queue->totoalCnt, task_queue->todoCnt, task_queue->totoalCnt - task_queue->todoCnt);
         pthread_mutex_unlock(&(task_queue->lock));
 
         /// If acquire sentinel task, thread exit.
         if (!thread_pool->info.isRunning && request_task->is_sentinel)
         {
-            printf("worker_thread[%d]: Acquire sentinel task, exit.\n", idx);
+            // printf("worker_thread[%d]: Acquire sentinel task, exit.\n", idx);
             break;
         }
 
         pthread_mutex_lock(&(thread_pool->info.lock));
         thread_pool->info.busyThreadNum++;
         thread_pool->info.idleThreadNum--;
-        printf("-- Thread Pool State: aliveThreadNum[%d], busyThreadNum[%d], idleThreadNum[%d].\n",
-            thread_pool->info.aliveThreadNum, thread_pool->info.busyThreadNum, thread_pool->info.idleThreadNum);
+        // printf("-- Thread Pool State: aliveThreadNum[%d], busyThreadNum[%d], idleThreadNum[%d].\n",
+            // thread_pool->info.aliveThreadNum, thread_pool->info.busyThreadNum, thread_pool->info.idleThreadNum);
         pthread_mutex_unlock(&(thread_pool->info.lock));
 
         (*(request_task->function))(request_task->argument);
@@ -172,8 +184,8 @@ static void *worker_thread(void *arg)
         pthread_mutex_lock(&(thread_pool->info.lock));
         thread_pool->info.busyThreadNum--;
         thread_pool->info.idleThreadNum++;
-        printf("-- Thread Pool State: aliveThreadNum[%d], busyThreadNum[%d], idleThreadNum[%d].\n",
-            thread_pool->info.aliveThreadNum, thread_pool->info.busyThreadNum, thread_pool->info.idleThreadNum);
+        // printf("-- Thread Pool State: aliveThreadNum[%d], busyThreadNum[%d], idleThreadNum[%d].\n",
+            // thread_pool->info.aliveThreadNum, thread_pool->info.busyThreadNum, thread_pool->info.idleThreadNum);
         pthread_mutex_unlock(&(thread_pool->info.lock));
     }
 
@@ -251,20 +263,20 @@ static ret_t mmap_check_request_valid(mmap_request_t *pRequest)
         }
         else
         {
-            s32 fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
-                         ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
-                         : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT, 0666);
-            if (fd < 0)
-            {
-                res = RET_BAD_VALUE;
-                printf("ERROR: invalid request detected: file [%s] not exist! res = %d.\n",
-                       pCreateInfo->fn, res);
-            }
-            else
-            {
-                close(fd);
+        //     s32 fd = pCreateInfo->direction == ASYNC_FILE_ACCESS_READ
+        //                  ? open((char8 *)(pCreateInfo->fn), O_RDONLY, 0666)
+        //                  : open((char8 *)(pCreateInfo->fn), O_WRONLY | O_CREAT, 0666);
+        //     if (fd < 0)
+        //     {
+        //         res = RET_BAD_VALUE;
+        //         printf("ERROR: invalid request detected: file [%s] not exist! res = %d.\n",
+        //                pCreateInfo->fn, res);
+        //     }
+        //     else
+        //     {
+        //         close(fd);
                 pRequest->isValid = TRUE;
-            }
+        //     }
         }
     }
 

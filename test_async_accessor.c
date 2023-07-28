@@ -312,5 +312,9 @@ ret_t sync_write_one_picture_to_file(void *buffer, char8 *filename, u32 length)
     write(fd, buf, length);
     printf("write_picture: [%s], size: %d, buf_addr: %p.\n", filename, length, buffer);
 
+    close(fd);
+    free(buf);
+    buf = NULL;
+
     return res;
 }

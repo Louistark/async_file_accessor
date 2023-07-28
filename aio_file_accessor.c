@@ -327,37 +327,59 @@ static ret_t aio_wait_all_requests(async_file_accessor_t *thiz,
     }
     else
     {
-        u32 req_cnt = pAioAccessor->req_count;
-        struct aiocb  **aiocb_list = (struct aiocb **)malloc(pAioAccessor->req_count * sizeof(struct aiocb*));
-        struct timespec timeout =
-        {
-            .tv_sec     = timeout_ms / 1000,
-            .tv_nsec    = (timeout_ms % 1000) * 1000000,
-        };
+        struct aiocb   *aiocb_list[1];
 
         for (int i = 0; i < pAioAccessor->req_count; i++)
         {
             aio_request_t *pRequest = pAioAccessor->req_list[i];
             if (pRequest)
             {
-                if (!pRequest->submitted ||
-                    pRequest->canceled ||
-                    pRequest->accessDone)
+                printf("wait all: file = %s, isValid[%d], isAlloced[%d], submitted[%d], accessDone[%d], canceled[%d].\n",
+                       pRequest->parent.info.fn, pRequest->isValid, pRequest->isAlloced, pRequest->submitted, pRequest->accessDone, pRequest->canceled);
+                if (pRequest->submitted && !pRequest->canceled && !pRequest->accessDone)
                 {
-                    req_cnt--;
-                }
-                else
-                {
-                    aiocb_list[i] = &(pRequest->cb);
+                    printf("wait request: file = %s.\n", pRequest->parent.info.fn);
+                    aiocb_list[0] = &(pRequest->cb);
+                    res = aio_suspend((const struct aiocb *const *)aiocb_list, 1, NULL);
+                    res |= (RET_OK == res) ? aio_error(&(pRequest->cb)) : res;
                 }
             }
         }
 
-        res = req_cnt > 0
-                ? aio_suspend((const struct aiocb *const *)aiocb_list, req_cnt, (timeout_ms > 0) ? &timeout : NULL)
-                : res;
+        // u32 req_cnt = pAioAccessor->req_count;
+        // struct aiocb  **aiocb_list = (struct aiocb **)malloc(pAioAccessor->req_count * sizeof(struct aiocb*));
+        // struct timespec timeout =
+        // {
+        //     .tv_sec     = timeout_ms / 1000,
+        //     .tv_nsec    = (timeout_ms % 1000) * 1000000,
+        // };
+
+        // for (int i = 0; i < pAioAccessor->req_count; i++)
+        // {
+        //     aio_request_t *pRequest = pAioAccessor->req_list[i];
+        //     if (pRequest)
+        //     {
+        //         printf("wait all: file = %s, isValid[%d], isAlloced[%d], submitted[%d], accessDone[%d], canceled[%d].\n",
+        //                pRequest->parent.info.fn, pRequest->isValid, pRequest->isAlloced, pRequest->submitted, pRequest->accessDone, pRequest->canceled);
+        //         if (!pRequest->submitted ||
+        //             pRequest->canceled ||
+        //             pRequest->accessDone)
+        //         {
+        //             req_cnt--;
+        //         }
+        //         else
+        //         {
+        //             printf("wait request: file = %s.\n", pRequest->parent.info.fn);
+        //             aiocb_list[i] = &(pRequest->cb);
+        //         }
+        //     }
+        // }
+
+        // res = req_cnt > 0
+        //         ? aio_suspend((const struct aiocb *const *)aiocb_list, req_cnt, (timeout_ms > 0) ? &timeout : NULL)
+        //         : res;
         
-        free(aiocb_list);
+        // free(aiocb_list);
         printf("Wait all request done.\n");
     }
 

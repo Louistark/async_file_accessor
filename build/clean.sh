@@ -1,6 +1,4 @@
 #! /bin/sh
 
-cd "./temp/"
-rm -rf ./*
-cd "../pictures/output/"
-rm -rf ./new*
+rm -rf ./temp
+rm -rf ./out

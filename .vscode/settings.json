@@ -2,5 +2,11 @@
     "files.associations": {
         "async_file_accessor.h": "c",
         "signal.h": "c"
-    }
+    },
+    "clangd.fallbackFlags": [
+        "-I${workspaceRoot}/",
+        "-I${workspaceRoot}/inc/",
+        "-I${workspaceRoot}/src/aio_file_accessor/",
+        "-I${workspaceRoot}/src/mmap_file_accessor/"
+    ],
 }
